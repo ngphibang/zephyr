@@ -110,9 +110,8 @@ struct mp_pad {
 	/**
 	 * Enumerate the pad's supported caps one structure at a time into caller storage.
 	 *
-	 * Lets an element whose capabilities come from a device produce them on
-	 * demand instead of holding a structure for each. Defaults to producing
-	 * the pad's own capability, and nothing past index 0.
+	 * It has to report -ENOENT once past its last capability. The framework stops asking past
+	 * UINT16_MAX, so an implementation that never reports the end fails instead of hanging.
 	 */
 	int (*enum_capsfn)(struct mp_pad *pad, uint32_t index, const struct mp_structure *filter,
 			   struct mp_structure *out);
