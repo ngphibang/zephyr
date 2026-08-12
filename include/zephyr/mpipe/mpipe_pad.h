@@ -105,19 +105,19 @@ struct mpipe_pad {
 	 * Chain function for handling buffers. Owns @p in_buf: on failure it
 	 * releases it, and the caller must not touch the buffer afterwards.
 	 */
-	int (*chainfn)(struct mpipe_pad *pad, struct net_buf *in_buf, struct net_buf **out_buf);
+	int (*chain_fn)(struct mpipe_pad *pad, struct net_buf *in_buf, struct net_buf **out_buf);
 	/** Query function for handling queries */
-	int (*queryfn)(struct mpipe_pad *pad, struct mpipe_dispatch *query);
+	int (*query_fn)(struct mpipe_pad *pad, struct mpipe_dispatch *query);
 	/** Event function for handling events */
-	int (*eventfn)(struct mpipe_pad *pad, struct mpipe_dispatch *event);
+	int (*event_fn)(struct mpipe_pad *pad, struct mpipe_dispatch *event);
 	/**
 	 * Enumerate the pad's supported caps one structure at a time into caller storage.
 	 *
 	 * It has to report -ENOENT once past its last capability. The framework stops asking past
 	 * UINT16_MAX, so an implementation that never reports the end fails instead of hanging.
 	 */
-	int (*enum_capsfn)(struct mpipe_pad *pad, uint32_t index,
-			   const struct mpipe_structure *filter, struct mpipe_structure *out);
+	int (*enum_caps_fn)(struct mpipe_pad *pad, uint32_t index,
+			    const struct mpipe_structure *filter, struct mpipe_structure *out);
 };
 
 /**
@@ -164,7 +164,7 @@ int mpipe_pad_answer_caps_query(struct mpipe_pad *pad, struct mpipe_dispatch *qu
 /**
  * @brief Narrow one enumerated capability by an enumeration filter.
  *
- * The epilogue every @ref mpipe_pad enum_capsfn shares: hand back @p candidate
+ * The epilogue every @ref mpipe_pad enum_caps_fn shares: hand back @p candidate
  * when there is no filter, otherwise narrow it and report that this index
  * cannot satisfy the filter so the caller moves on to the next one.
  *
