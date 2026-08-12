@@ -341,6 +341,12 @@ mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_chan
 	 */
 	switch (transition) {
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
+		/*
+		 * Discard any message left over from a previous run: a stale EOS or
+		 * ERROR popped after this run starts would stop it immediately.
+		 */
+		(void)mpipe_bus_flush(&pipeline->bin.bus);
+
 		/* Clear the flushing gate so buffers can flow again */
 		mpipe_pipeline_set_flushing(&pipeline->bin, false);
 
