@@ -19,7 +19,21 @@
 
 LOG_MODULE_REGISTER(mpipe_bin, CONFIG_MPIPE_LOG_LEVEL);
 
-BUILD_ASSERT(sizeof(struct mpipe_message) <= CONFIG_ZBUS_MSG_SUBSCRIBER_NET_BUF_STATIC_DATA_SIZE);
+/*
+ * The framework allocates nothing, so neither may the bus underneath it.
+ * subsys/mpipe/Kconfig turns ZBUS_PREFER_DYNAMIC_ALLOCATION off to get there,
+ * but that is a default among several and only wins on Kconfig parse order.
+ * Say what mpipe needs rather than trusting where its Kconfig is sourced.
+ */
+#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_DYNAMIC) ||                                       \
+	defined(CONFIG_ZBUS_RUNTIME_OBSERVERS_NODE_ALLOC_DYNAMIC)
+#error "mpipe needs static zbus allocation: set CONFIG_ZBUS_PREFER_DYNAMIC_ALLOCATION=n"
+#endif
+
+#if defined(CONFIG_ZBUS_MSG_SUBSCRIBER_BUF_ALLOC_STATIC)
+BUILD_ASSERT(sizeof(struct mpipe_message) <= CONFIG_ZBUS_MSG_SUBSCRIBER_NET_BUF_STATIC_DATA_SIZE,
+	     "A zbus message subscriber buffer cannot hold an mpipe_message");
+#endif
 
 int mpipe_bin_add(struct mpipe_bin *bin, struct mpipe_element *element, ...)
 {
