@@ -43,7 +43,7 @@ static K_THREAD_STACK_DEFINE(mpipe_player_worker_stack, CONFIG_MPIPE_PLAYER_WORK
 /* clang-format off */
 static const char *const mpipe_player_domain_names[] = {
 	[MPIPE_ERROR_CAPS] = "capability negotiation",
-	[MPIPE_ERROR_ALLOC] = "buffer negotiation",
+	[MPIPE_ERROR_BUFFER_POOL] = "buffer negotiation",
 	[MPIPE_ERROR_FLOW] = "buffer flow",
 	[MPIPE_ERROR_RESOURCE] = "resource",
 	[MPIPE_ERROR_FAILED] = "failure",
