@@ -61,19 +61,20 @@ struct mpipe_bin {
 	 *   locates the bus from the message's origin element. The message is
 	 *   copied by value into the channel, so stack storage is fine. The
 	 *   application must not post to a bus that it consumes.
-	 * - Consumers: a channel can have one or more consumers, of two kinds:
-	 *   - Subscriber (enabled with CONFIG_ZBUS_MSG_SUBSCRIBER): the
-	 *     application reads messages from its own thread, blocking until one
-	 *     arrives. Use this when the application wants to own the thread that
-	 *     handles events. Define a subscriber with @ref ZBUS_MSG_SUBSCRIBER_DEFINE(),
-	 *     register it on the channel with zbus_chan_add_obs(&bin.bus.channel, ...),
-	 *     and retrieve messages with zbus_sub_wait_msg().
-	 *   - Async listener (enabled with ZBUS_ASYNC_LISTENER): the message is
-	 *     copied into a FIFO and the callback is later executed in the
-	 *     sysworkq context. Use this for short, non-blocking handlers that do
-	 *     not need a dedicated thread. Define a listener with
-	 *     ZBUS_LISTENER_DEFINE() and register it on the channel with
-	 *     zbus_chan_add_obs(&bin.bus.channel, ...).
+	 * - Consumers: a channel can have one or more observers. Reach the channel
+	 *   with @ref mpipe_element_get_bus_chan and attach with zbus_chan_add_obs();
+	 *   three kinds are useful here:
+	 *   - Listener: the callback runs inline in the posting thread, holding the
+	 *     channel lock. Cheapest by far - no queue, no buffer - but it must not
+	 *     block or change pipeline state. Define it with ZBUS_LISTENER_DEFINE().
+	 *   - Message subscriber (needs CONFIG_ZBUS_MSG_SUBSCRIBER): the application
+	 *     reads messages from its own thread, blocking until one arrives, and no
+	 *     message is lost. Costs a net_buf per publish, taken from a pool shared
+	 *     with every other zbus channel in the system. Define it with
+	 *     ZBUS_MSG_SUBSCRIBER_DEFINE() and read with zbus_sub_wait_msg().
+	 *   - Async listener (needs CONFIG_ZBUS_ASYNC_LISTENER, which pulls in the
+	 *     message subscriber machinery): the callback runs later on the system
+	 *     work queue. Define it with ZBUS_ASYNC_LISTENER_DEFINE().
 	 *   Detach any observer with zbus_chan_rm_obs() before the bin goes away.
 	 * - Validator: an optional zbus validator, installed by
 	 *   @ref mpipe_bin_set_bus_validator, runs in the posting thread before the

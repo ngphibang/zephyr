@@ -366,8 +366,10 @@ int mpipe_player_init(struct mpipe_player *player, struct mpipe *pipeline)
 		    CONFIG_MPIPE_PLAYER_CMD_QUEUE_DEPTH);
 	k_sem_init(&player->exited, 0, 1);
 
-	/* Attach the async listener to the pipeline's message channel */
-	if (zbus_chan_add_obs(&pipeline->bin.bus.channel, &mpipe_player_listener, K_FOREVER) != 0) {
+	struct zbus_channel *bus = mpipe_element_get_bus_chan((struct mpipe_element *)pipeline);
+
+	/* Attach the listener to the pipeline's message channel */
+	if (zbus_chan_add_obs(bus, &mpipe_player_listener, K_FOREVER) != 0) {
 		LOG_ERR("Failed to attach player to pipeline channel");
 		return -EIO;
 	}
@@ -378,7 +380,7 @@ int mpipe_player_init(struct mpipe_player *player, struct mpipe *pipeline)
 					     CONFIG_MPIPE_PLAYER_WORKER_PRIORITY, 0, K_NO_WAIT);
 	if (player->worker_tid == NULL) {
 		LOG_ERR("Failed to create player worker thread");
-		(void)zbus_chan_rm_obs(&pipeline->bin.bus.channel, &mpipe_player_listener, K_FOREVER);
+		(void)zbus_chan_rm_obs(bus, &mpipe_player_listener, K_FOREVER);
 
 		return -EIO;
 	}
@@ -464,8 +466,9 @@ int mpipe_player_deinit(struct mpipe_player *player)
 
 	atomic_ptr_set(&active_player, NULL);
 
-	/* Detach the async listener. */
-	err = zbus_chan_rm_obs(&player->pipeline->bin.bus.channel, &mpipe_player_listener, K_FOREVER);
+	/* Detach the listener. */
+	err = zbus_chan_rm_obs(mpipe_element_get_bus_chan((struct mpipe_element *)player->pipeline),
+			       &mpipe_player_listener, K_FOREVER);
 
 	return err;
 }
