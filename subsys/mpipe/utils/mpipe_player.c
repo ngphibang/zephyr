@@ -37,6 +37,8 @@ enum mpipe_player_cmd {
 	MPIPE_PLAYER_CMD_STOP,
 	MPIPE_PLAYER_CMD_REPLAY,
 	MPIPE_PLAYER_CMD_QUIT,
+	/* Stop asked for by the bus, on end-of-stream or on a fatal error. */
+	MPIPE_PLAYER_CMD_END_OF_RUN,
 };
 
 /* Only a single player instance is supported at a time. */
@@ -155,6 +157,13 @@ static void mpipe_player_do_play(struct mpipe_player *player)
 		return;
 	}
 
+	/* A resume continues the run it was paused in; a start from STOPPED
+	 * begins a new one, which retires any end-of-run still queued.
+	 */
+	if (player->state == MPIPE_PLAYER_STOPPED) {
+		player->run_id++;
+	}
+
 	/* Both STOPPED->PLAYING and PAUSED->PLAYING are handled by set_state
 	 * stepping through the intermediate states. Resume from PAUSED keeps
 	 * queued data (no flush).
@@ -211,8 +220,27 @@ static void mpipe_player_report_error(struct mpipe_player *player, const struct 
 /*
  * Apply a single command. Returns true when the worker should exit (QUIT).
  */
-static bool mpipe_player_handle_cmd(struct mpipe_player *player, uint8_t cmd)
+static bool mpipe_player_handle_cmd(struct mpipe_player *player,
+				    const struct mpipe_player_cmd_msg *msg)
 {
+	uint8_t cmd = msg->cmd;
+
+	/*
+	 * An end-of-run describes the run it was posted from. A replay racing
+	 * the end of the previous run leaves one queued behind the replay, and
+	 * acting on it would stop the run that has just started. Drop it: the
+	 * run it speaks for no longer exists.
+	 */
+	if (cmd == MPIPE_PLAYER_CMD_END_OF_RUN) {
+		if (msg->run_id != player->run_id) {
+			LOG_DBG("Dropping end-of-run from run %u, now on run %u", msg->run_id,
+				player->run_id);
+			return false;
+		}
+
+		cmd = MPIPE_PLAYER_CMD_STOP;
+	}
+
 	switch (cmd) {
 	case MPIPE_PLAYER_CMD_PLAY:
 		mpipe_player_do_play(player);
@@ -253,13 +281,13 @@ static bool mpipe_player_handle_cmd(struct mpipe_player *player, uint8_t cmd)
 static void mpipe_player_worker(void *p1, void *p2, void *p3)
 {
 	struct mpipe_player *player = p1;
-	uint8_t cmd;
+	struct mpipe_player_cmd_msg msg;
 
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	while (k_msgq_get(&player->cmd_q, &cmd, K_FOREVER) == 0) {
-		if (mpipe_player_handle_cmd(player, cmd)) {
+	while (k_msgq_get(&player->cmd_q, &msg, K_FOREVER) == 0) {
+		if (mpipe_player_handle_cmd(player, &msg)) {
 			return;
 		}
 	}
@@ -267,13 +295,16 @@ static void mpipe_player_worker(void *p1, void *p2, void *p3)
 
 static int mpipe_player_post(struct mpipe_player *player, enum mpipe_player_cmd cmd)
 {
-	uint8_t c = (uint8_t)cmd;
+	struct mpipe_player_cmd_msg msg;
 
 	if (player == NULL) {
 		return -EINVAL;
 	}
 
-	return k_msgq_put(&player->cmd_q, &c, K_NO_WAIT);
+	msg.cmd = (uint8_t)cmd;
+	msg.run_id = player->run_id;
+
+	return k_msgq_put(&player->cmd_q, &msg, K_NO_WAIT);
 }
 
 static void mpipe_player_msg_cb(const struct zbus_channel *chan, const void *msg)
@@ -291,11 +322,11 @@ static void mpipe_player_msg_cb(const struct zbus_channel *chan, const void *msg
 	switch (m->type) {
 	case MPIPE_MESSAGE_ERROR:
 		mpipe_player_report_error(player, msg);
-		ret = mpipe_player_post(player, MPIPE_PLAYER_CMD_STOP);
+		ret = mpipe_player_post(player, MPIPE_PLAYER_CMD_END_OF_RUN);
 		break;
 	case MPIPE_MESSAGE_EOS:
 		LOG_INF("End of stream");
-		ret = mpipe_player_post(player, MPIPE_PLAYER_CMD_STOP);
+		ret = mpipe_player_post(player, MPIPE_PLAYER_CMD_END_OF_RUN);
 		break;
 	default:
 		break;
@@ -318,8 +349,9 @@ int mpipe_player_init(struct mpipe_player *player, struct mpipe *pipeline)
 
 	player->pipeline = pipeline;
 	player->state = MPIPE_PLAYER_STOPPED;
+	player->run_id = 0;
 
-	k_msgq_init(&player->cmd_q, player->cmd_buf, sizeof(uint8_t),
+	k_msgq_init(&player->cmd_q, player->cmd_buf, sizeof(struct mpipe_player_cmd_msg),
 		    CONFIG_MPIPE_PLAYER_CMD_QUEUE_DEPTH);
 	k_sem_init(&player->exited, 0, 1);
 

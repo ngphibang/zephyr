@@ -52,6 +52,18 @@ enum mpipe_player_state {
 	MPIPE_PLAYER_PAUSED,
 };
 
+/** @cond INTERNAL_HIDDEN */
+/*
+ * One entry of the player command queue. run_id names the run the command was
+ * posted from, so the worker can tell an end-of-run raised for the run in
+ * progress from one describing a run that has already been torn down.
+ */
+struct mpipe_player_cmd_msg {
+	uint8_t cmd;
+	uint8_t run_id;
+};
+/** @endcond */
+
 /**
  * @brief Player instance.
  *
@@ -63,8 +75,10 @@ struct mpipe_player {
 	struct mpipe *pipeline;
 	/** Command queue feeding the worker thread. */
 	struct k_msgq cmd_q;
-	/** Backing buffer for the command queue. Each cmd is a char (keystroke). */
-	char cmd_buf[CONFIG_MPIPE_PLAYER_CMD_QUEUE_DEPTH * sizeof(uint8_t)];
+	/** Backing buffer for the command queue. */
+	char cmd_buf[CONFIG_MPIPE_PLAYER_CMD_QUEUE_DEPTH * sizeof(struct mpipe_player_cmd_msg)];
+	/** Run counter, bumped by the worker each time a run starts. */
+	uint8_t run_id;
 	/** Worker thread control block. */
 	struct k_thread worker;
 	/** Worker thread id. */
