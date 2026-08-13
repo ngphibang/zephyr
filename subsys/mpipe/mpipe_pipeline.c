@@ -377,10 +377,10 @@ mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_chan
 	switch (transition) {
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
 		/*
-		 * Discard any message left over from a previous run: a stale EOS or
-		 * ERROR popped after this run starts would stop it immediately.
+		 * Nothing to flush here: the bus is a zbus channel holding only the
+		 * last message, so a message left over from a previous run sits in
+		 * the observer's own queue. Discarding it is the observer's job.
 		 */
-		(void)mpipe_bus_flush(&pipeline->bin.bus);
 
 		/* Clear the flushing gate so buffers can flow again */
 		mpipe_pipeline_set_flushing(&pipeline->bin, false);
