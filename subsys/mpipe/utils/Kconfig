@@ -7,7 +7,6 @@
 config MPIPE_PLAYER
 	bool "Multimedia Pipeline player helper"
 	depends on MPIPE
-	select ZBUS_ASYNC_LISTENER
 	imply SHELL
 	imply SERIAL
 	imply UART_CONSOLE

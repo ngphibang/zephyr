@@ -79,6 +79,8 @@ struct mpipe_player {
 	char cmd_buf[CONFIG_MPIPE_PLAYER_CMD_QUEUE_DEPTH * sizeof(struct mpipe_player_cmd_msg)];
 	/** Run counter, bumped by the worker each time a run starts. */
 	uint8_t run_id;
+	/** Last error the bus listener saw, reported by the worker. */
+	struct mpipe_message last_error;
 	/** Worker thread control block. */
 	struct k_thread worker;
 	/** Worker thread id. */
@@ -92,7 +94,7 @@ struct mpipe_player {
 /**
  * @brief Initialize a player and start its worker thread.
  *
- * Registers a bus async listener that auto-stops the pipeline on end-of-stream or
+ * Registers a bus listener that auto-stops the pipeline on end-of-stream or
  * error. The pipeline must already be built and linked, but should be in the
  * READY state (not yet playing).
  *
