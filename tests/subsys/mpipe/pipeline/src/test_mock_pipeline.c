@@ -61,8 +61,9 @@ static void pipeline_before(void *f)
 static void pipeline_after(void *f)
 {
 	struct test_mock_pipeline_fixture *fix = f;
+
+	/* Also runs when the test failed before detaching its own observer. */
 	(void)zbus_chan_rm_obs(&fix->pipeline.bin.bus.channel, &test_pipeline_sub, K_FOREVER);
-	(void)mpipe_bin_deinit_bus(&fix->pipeline.bin);
 }
 
 ZTEST_SUITE(test_mock_pipeline, NULL, pipeline_suite_setup, pipeline_before, pipeline_after, NULL);

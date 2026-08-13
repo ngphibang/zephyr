@@ -52,8 +52,8 @@ struct mpipe_bin {
 	 * and status notifications only.
 	 *
 	 * Bus is a single zbus channel, owned by the bin and shared by all of
-	 * its children. It is created and registered once by
-	 * @ref mpipe_bin_init, and torn down by @ref mpipe_bin_deinit_bus.
+	 * its children. @ref mpipe_bin_init initializes it; it needs no teardown,
+	 * as it lives entirely inside the bin and is registered nowhere else.
 	 *
 	 * A channel involves three roles:
 	 *
@@ -74,12 +74,11 @@ struct mpipe_bin {
 	 *     not need a dedicated thread. Define a listener with
 	 *     ZBUS_LISTENER_DEFINE() and register it on the channel with
 	 *     zbus_chan_add_obs(&bin.bus.channel, ...).
-	 *   Detach any observer with zbus_chan_rm_obs() on teardown; all observers
-	 *   MUST be removed before @ref mpipe_bin_deinit_bus.
-	 * - Validator: an optional zbus validator, set via
-	 *   @ref mpipe_bin_set_bus_validator, runs in the posting thread before
-	 *   the message is published, and may drop messages (e.g. collapsing N
-	 *   end-of-stream events into one). Keep it short and non-blocking.
+	 *   Detach any observer with zbus_chan_rm_obs() before the bin goes away.
+	 * - Validator: an optional zbus validator, installed by
+	 *   @ref mpipe_bin_init_bus, runs in the posting thread before the message
+	 *   is published, and may drop messages (e.g. collapsing N end-of-stream
+	 *   events into one). Keep it short and non-blocking.
 	 */
 	struct zbus_runtime_channel bus;
 
@@ -102,7 +101,11 @@ struct mpipe_bin {
 int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id);
 
 /**
- * @brief Initialize and register the bin's bus channel.
+ * @brief Initialize the bin's bus channel.
+ *
+ * Called by @ref mpipe_bin_init with no validator. An element wrapping a bin
+ * (a pipeline, say) calls it again with its own validator and user data; the
+ * channel has no observers yet at that point, so re-initializing it is safe.
  *
  * @param bin           Pointer to the @ref mpipe_bin.
  * @param bus_validator Optional message validator installed on the channel,
@@ -110,10 +113,8 @@ int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id);
  * @param user_data     User data associated with the bus,
  *                      retrievable from the validator/observers via
  *                      zbus_chan_user_data(), or NULL if unused.
- *
- * @return 0 on success, negative errno on failure
  */
-int mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data);
+void mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data);
 
 /**
  * @brief Install a validator and user data on the bin's already-registered bus.
@@ -133,22 +134,6 @@ int mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void
  */
 int mpipe_bin_set_bus_validator(struct mpipe_bin *bin, zbus_validator bus_validator,
 				void *user_data);
-
-/**
- * @brief Unregister the bin's bus channel.
- *
- * Removing the channel from the global bus runtime registry.
- * Call this on teardown so the same bin can be re-initialized
- * without corrupting the registry.
- *
- * @note All observers added to the channel MUST already have been removed
- *       before calling this function.
- *
- * @param bin Pointer to the @ref mpipe_bin.
- *
- * @return 0 on success, negative errno on failure
- */
-int mpipe_bin_deinit_bus(struct mpipe_bin *bin);
 
 /**
  * @brief Add elements to a bin

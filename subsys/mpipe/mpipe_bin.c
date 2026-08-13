@@ -221,29 +221,24 @@ int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id)
 	self->object.flags |= MPIPE_OBJECT_FLAG_BIN;
 
 	sys_dlist_init(&bin->children);
-	ret = mpipe_bin_init_bus(bin, NULL, bin);
-	if (ret != 0) {
-		LOG_ERR("Failed to init the bin bus channel (%d)", ret);
-		return ret;
-	}
+	mpipe_bin_init_bus(bin, NULL, bin);
 
 	return 0;
 }
 
-int mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data)
+void mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data)
 {
-	if (bin == NULL) {
-		return -EINVAL;
-	}
 	/*
 	 * chan_msg is the channel's backing message buffer. It is required for
 	 * every bus channel and observer type: each publish copies the message
 	 * into it, and channel init rejects a NULL buffer.
+	 *
+	 * The channel is deliberately left out of zbus_runtime_channel_register().
+	 * That registry only feeds zbus_iterate_over_channels(), which mpipe never
+	 * calls; publishing and attaching observers work off the channel itself.
 	 */
 	zbus_runtime_channel_init(&bin->bus, &bin->chan_data, NULL, ZBUS_CHAN_ID_INVALID,
 				  bus_validator, &bin->chan_msg, sizeof(bin->chan_msg), user_data);
-
-	return zbus_runtime_channel_register(&bin->bus);
 }
 
 int mpipe_bin_set_bus_validator(struct mpipe_bin *bin, zbus_validator bus_validator,
@@ -259,13 +254,4 @@ int mpipe_bin_set_bus_validator(struct mpipe_bin *bin, zbus_validator bus_valida
 	k_sem_give(&bin->bus.channel.data->sem);
 
 	return 0;
-}
-
-int mpipe_bin_deinit_bus(struct mpipe_bin *bin)
-{
-	if (bin == NULL) {
-		return -EINVAL;
-	}
-
-	return zbus_runtime_channel_unregister(&bin->bus);
 }
