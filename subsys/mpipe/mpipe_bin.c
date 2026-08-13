@@ -206,6 +206,25 @@ enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element 
 	return MPIPE_STATE_CHANGE_SUCCESS;
 }
 
+/*
+ * Bring up the bin's bus channel, with no validator: a bin has no opinion on
+ * the messages passing through it. An element wrapping the bin installs one
+ * with mpipe_bin_set_bus_validator().
+ *
+ * chan_msg is the channel's backing message buffer. It is required for every
+ * bus channel and observer type: each publish copies the message into it, and
+ * channel init rejects a NULL buffer.
+ *
+ * The channel is deliberately left out of zbus_runtime_channel_register().
+ * That registry only feeds zbus_iterate_over_channels(), which mpipe never
+ * calls; publishing and attaching observers work off the channel itself.
+ */
+static void mpipe_bin_init_bus(struct mpipe_bin *bin)
+{
+	zbus_runtime_channel_init(&bin->bus, &bin->chan_data, NULL, ZBUS_CHAN_ID_INVALID, NULL,
+				  &bin->chan_msg, sizeof(bin->chan_msg), bin);
+}
+
 int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id)
 {
 	struct mpipe_element *self = &bin->element;
@@ -221,37 +240,31 @@ int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id)
 	self->object.flags |= MPIPE_OBJECT_FLAG_BIN;
 
 	sys_dlist_init(&bin->children);
-	mpipe_bin_init_bus(bin, NULL, bin);
+	mpipe_bin_init_bus(bin);
 
 	return 0;
-}
-
-void mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data)
-{
-	/*
-	 * chan_msg is the channel's backing message buffer. It is required for
-	 * every bus channel and observer type: each publish copies the message
-	 * into it, and channel init rejects a NULL buffer.
-	 *
-	 * The channel is deliberately left out of zbus_runtime_channel_register().
-	 * That registry only feeds zbus_iterate_over_channels(), which mpipe never
-	 * calls; publishing and attaching observers work off the channel itself.
-	 */
-	zbus_runtime_channel_init(&bin->bus, &bin->chan_data, NULL, ZBUS_CHAN_ID_INVALID,
-				  bus_validator, &bin->chan_msg, sizeof(bin->chan_msg), user_data);
 }
 
 int mpipe_bin_set_bus_validator(struct mpipe_bin *bin, zbus_validator bus_validator,
 				void *user_data)
 {
+	struct zbus_channel *chan;
+	int ret;
+
 	if (bin == NULL) {
 		return -EINVAL;
 	}
 
-	k_sem_take(&bin->bus.channel.data->sem, K_FOREVER);
-	bin->bus.channel.validator = bus_validator;
-	bin->bus.channel.user_data = user_data;
-	k_sem_give(&bin->bus.channel.data->sem);
+	chan = &bin->bus.channel;
 
-	return 0;
+	/* zbus_chan_claim() is the public form of taking the channel's lock */
+	ret = zbus_chan_claim(chan, K_FOREVER);
+	if (ret != 0) {
+		return ret;
+	}
+
+	chan->validator = bus_validator;
+	chan->user_data = user_data;
+
+	return zbus_chan_finish(chan);
 }

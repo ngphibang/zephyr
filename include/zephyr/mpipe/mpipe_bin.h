@@ -76,9 +76,9 @@ struct mpipe_bin {
 	 *     zbus_chan_add_obs(&bin.bus.channel, ...).
 	 *   Detach any observer with zbus_chan_rm_obs() before the bin goes away.
 	 * - Validator: an optional zbus validator, installed by
-	 *   @ref mpipe_bin_init_bus, runs in the posting thread before the message
-	 *   is published, and may drop messages (e.g. collapsing N end-of-stream
-	 *   events into one). Keep it short and non-blocking.
+	 *   @ref mpipe_bin_set_bus_validator, runs in the posting thread before the
+	 *   message is published, and may drop messages (e.g. collapsing N
+	 *   end-of-stream events into one). Keep it short and non-blocking.
 	 */
 	struct zbus_runtime_channel bus;
 
@@ -101,31 +101,17 @@ struct mpipe_bin {
 int mpipe_bin_init(struct mpipe_bin *bin, uint8_t id);
 
 /**
- * @brief Initialize the bin's bus channel.
+ * @brief Install a validator and user data on the bin's bus.
  *
- * Called by @ref mpipe_bin_init with no validator. An element wrapping a bin
- * (a pipeline, say) calls it again with its own validator and user data; the
- * channel has no observers yet at that point, so re-initializing it is safe.
+ * @ref mpipe_bin_init brings the channel up with no validator, since a bin has
+ * no opinion on the messages passing through it. An element wrapping a bin (a
+ * pipeline, say) uses this to install its own.
  *
- * @param bin           Pointer to the @ref mpipe_bin.
- * @param bus_validator Optional message validator installed on the channel,
- *                      or NULL for no validation.
- * @param user_data     User data associated with the bus,
- *                      retrievable from the validator/observers via
- *                      zbus_chan_user_data(), or NULL if unused.
- */
-void mpipe_bin_init_bus(struct mpipe_bin *bin, zbus_validator bus_validator, void *user_data);
-
-/**
- * @brief Install a validator and user data on the bin's already-registered bus.
- *
- * The bin initializes and registers its bus in @ref mpipe_bin_init. A wrapping
- * element (e.g. a pipeline) uses this to install its own message validator and
- * user_data without re-initializing or re-registering the channel.
+ * Only those two fields change, under the channel's own lock. Observers already
+ * attached stay attached, and may be attached before or after this call.
  *
  * @param bin           Pointer to the @ref mpipe_bin.
- * @param bus_validator Optional message validator installed on the channel,
- *                      or NULL for no validation.
+ * @param bus_validator Message validator to install, or NULL for no validation.
  * @param user_data     User data associated with the bus,
  *                      retrievable from the validator/observers via
  *                      zbus_chan_user_data(), or NULL if unused.
