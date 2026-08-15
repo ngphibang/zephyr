@@ -27,8 +27,9 @@
 #
 # Requirements:
 #   - Must be run from the zephyr repository root
-#   - Must be on the libmp_dev branch (or specify --source-branch)
+#   - Must be on the libmp_dev branch
 #   - mmiot/main remote must be available
+#   - libmp_dev must be rebased onto mmiot/main
 
 set -euo pipefail
 
@@ -44,6 +45,10 @@ BASE_REF="mmiot/main"
 
 # Branch name prefix for generated upstream branches
 UPSTREAM_PREFIX="upstream/mpipe"
+
+# Release notes announcing the subsystem. Bump this when the target release
+# changes; it is the only place the version appears.
+RELNOTES_PATH="doc/releases/release-notes-4.5.rst"
 
 # Explicit commit authorship.
 #
@@ -114,16 +119,22 @@ CORE_PATHS=(
     "include/zephyr/mpipe/mpipe_transform_client.h"
     "include/zephyr/mpipe/mpipe_value.h"
     "include/zephyr/mpipe/mpipe_workqueue.h"
-    "subsys/Kconfig"
-    "subsys/CMakeLists.txt"
-    "lib/Kconfig"
-    "lib/CMakeLists.txt"
-    "MAINTAINERS.yml"
     # The subsystem's documentation page ships with the core it describes.
+    # mpipe owns the whole directory, so taking the file wholesale is right.
     # check_core_paths_current() only validates the subsys/ and include/
-    # entries, so these two are not covered by it - keep them in step by hand.
+    # entries, so this one is not covered by it - keep it in step by hand.
     "doc/services/mpipe/index.rst"
-    "doc/services/frameworks.rst"
+)
+
+# Files upstream also owns, where mpipe only adds a few lines: apply our delta
+# instead of taking the file. A whole-file checkout here would revert anything
+# that landed upstream since we branched. Only the core target has any.
+declare -A TARGET_DELTAS
+TARGET_DELTAS=(
+    # The continuation line is deliberately not indented: the backslash eats
+    # only the newline, so any leading spaces would end up inside the string.
+    [core]="subsys/Kconfig subsys/CMakeLists.txt MAINTAINERS.yml \
+doc/services/frameworks.rst ${RELNOTES_PATH}"
 )
 
 # vid plugin
@@ -210,27 +221,46 @@ CORE_TEST_PATHS=(
 
 CORE_COMMIT_MSG="mpipe: Introduce the Multimedia Pipeline (mpipe) subsystem
 
-Multimedia Pipeline (mpipe) is a lightweight GStreamer-like multimedia framework
-for Zephyr. It reuses many concepts from GStreamer, such as elements,
-pads, caps negotiation, and buffer negotiation and adopts a pipeline-
-based architecture that decomposes multimedia processing into discrete,
-interconnected elements.
+Embedded devices increasingly combine video, audio, networking, graphics
+and AI inference in one application, but multimedia code on a
+microcontroller is still usually written per use case: each application
+handles the specifics of every domain it touches, manages the buffers of
+every component, and synchronises them by hand. That does not scale - a
+new use case means a new application rather than a new arrangement of
+the parts.
 
-It aims to simplify the development of multimedia applications by
-providing simple and stable APIs for users to rapidly create their
-specific applications, i.e., users simply select the built-in elements
-and plugins suited to their purpose to construct a pipeline, and it
-just works. This design promotes modularity, reusability, and efficient
-resource management (e.g., zero-copy data flow). Moreover, the APIs
-are generic enough so that application code can remain unchanged even
-as mpipe evolves.
+Introduce mpipe, which builds a media stream out of self-contained
+processing elements. An application declares the elements it needs,
+links them into a graph, and drives that graph through a state machine;
+mpipe negotiates the data format between neighboring elements, settles
+which buffer pool provides the buffers, and moves those buffers from one
+element to the next.
 
-mpipe also features a highly modular, inheritance-based architecture
-inspired by GStreamer, ensuring modularity, scalability, and
-maintainability. For example, new custom elements can be easily added
-by extending existing elements, without requiring modifications to the
-core components. Plugins are decentralized from the core structures,
-allowing seamless extension without altering the core framework.
+mpipe provides the pieces and the rules by which they fit together
+rather than finished solutions, so a developer assembles a pipeline much
+like building with interlocking bricks. The same graph runs on another
+board by binding its elements to different devices, and a new
+requirement is usually one more element rather than a rewrite.
+
+The elements live in plugins, decentralised from the framework: a plugin
+brings its own directory, its own Kconfig and its own headers, and the
+build picks it up without an edit to the core. A silicon vendor or a
+middleware provider can therefore ship elements without altering the
+framework.
+
+The framework allocates nothing at runtime. Buffers come from pools
+sized while the pipeline starts, and everything on the negotiation path
+is fixed-size and held by value, so a stream that runs for hours cannot
+fragment a heap it never touches and a negotiation cannot fail for
+memory.
+
+This commit adds the framework only. Plugins, the pipeline dump, the
+player and the samples follow in their own patches.
+
+Trung Hieu Le contributed the message bus, which is built on zbus, and
+the first heap-based implementation of the mpipe_value and
+mpipe_structure type system. That type system was later re-implemented
+into the fixed-size, heap-free form described above.
 
 ${SOB_PHIBANG}
 ${SOB_TRUNGHIEU}"
@@ -680,6 +710,18 @@ check_prerequisites() {
         die "Base ref '${BASE_REF}' not found. Run: git fetch mmiot"
     fi
 
+    # Verify the source branch is rebased onto the base ref. Exporting from a
+    # stale branch builds every PR on an upstream that has already moved, so
+    # the compliance and build checks run against a tree upstream no longer
+    # has, and any file taken wholesale is written back missing whatever
+    # landed there since.
+    if ! git merge-base --is-ancestor "${BASE_REF}" "${SOURCE_BRANCH}"; then
+        local behind
+        behind="$(git rev-list --count "${SOURCE_BRANCH}..${BASE_REF}")"
+        log_error "'${SOURCE_BRANCH}' is ${behind} commit(s) behind '${BASE_REF}'."
+        die "Rebase first: git fetch mmiot && git rebase ${BASE_REF} ${SOURCE_BRANCH}"
+    fi
+
     # Check for clean working tree
     if ! git diff --quiet || ! git diff --cached --quiet; then
         die "Working tree is not clean. Please commit or stash changes first."
@@ -748,6 +790,35 @@ check_deps() {
     return 0
 }
 
+# Apply our change to a file upstream also owns, instead of taking the file.
+#
+# The diff is taken from the merge base rather than from BASE_REF, so it is
+# exactly what we added and nothing upstream has done since we branched.
+# --3way makes an upstream change in the same region a reported conflict
+# rather than a silent clobber.
+#
+# Args: $1=path
+apply_delta() {
+    local path="$1"
+    local merge_base
+
+    merge_base="$(git merge-base "${BASE_REF}" "${SOURCE_BRANCH}")"
+
+    if git diff --quiet "${merge_base}" "${SOURCE_BRANCH}" -- "${path}"; then
+        log_warn "  No delta for ${path}; skipping."
+        return 0
+    fi
+
+    if ! git diff "${merge_base}" "${SOURCE_BRANCH}" -- "${path}" |
+            git apply --3way --index -; then
+        log_error "  Could not apply the ${path} delta onto ${BASE_REF}."
+        log_error "  Upstream changed the same region - resolve by hand."
+        return 1
+    fi
+
+    log_info "  Applied delta: ${path}"
+}
+
 # Generate a single upstream branch for a target.
 # The branch starts from BASE_REF, cherry-picks dependency commits, then
 # adds the target's own commit on top.
@@ -766,7 +837,12 @@ generate_branch() {
     if [ -n "${deps}" ]; then
         log_info "  Dependencies: ${deps}"
     fi
+    local deltas="${TARGET_DELTAS[${target}]:-}"
+
     log_info "  Paths: ${paths[*]}"
+    if [ -n "${deltas}" ]; then
+        log_info "  Deltas: ${deltas}"
+    fi
 
     if ${DRY_RUN}; then
         log_info "  [DRY RUN] Would create branch '${branch}' from '${BASE_REF}'"
@@ -774,6 +850,9 @@ generate_branch() {
             log_info "  [DRY RUN] Would cherry-pick from: ${deps}"
         fi
         log_info "  [DRY RUN] With files from ${SOURCE_BRANCH} -- ${paths[*]}"
+        if [ -n "${deltas}" ]; then
+            log_info "  [DRY RUN] And deltas onto ${BASE_REF} -- ${deltas}"
+        fi
         echo ""
         return 0
     fi
@@ -923,6 +1002,15 @@ generate_branch() {
         git checkout "${current_branch}" --quiet
         return 1
     fi
+
+    # Files upstream shares with us: add our lines, leave the rest alone.
+    # These land in the same commit as the files taken wholesale above.
+    for path in ${deltas}; do
+        if ! apply_delta "${path}"; then
+            git checkout "${current_branch}" --quiet
+            return 1
+        fi
+    done
 
     # Append this plugin's own build_all entry. The core-tests commit (cherry-
     # picked as a dependency) provides build_all/tests.yaml with only the
