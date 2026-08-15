@@ -250,6 +250,10 @@ New APIs and options
   * :c:func:`lora_recv_duty_cycle`
   * :c:func:`lora_recv_duty_cycle_async`
 
+* Multimedia Pipeline
+
+  * :kconfig:option:`CONFIG_MPIPE` (see :ref:`mpipe`)
+
 * Network
 
   * Add :c:func:`net_eth_set_if_type_wifi` to set the ethernet interface type to Wi-Fi.
@@ -366,6 +370,13 @@ Libraries / Subsystems
     LoRaWAN 1.0.x Class A directly on top of the LoRa radio driver, without
     the Semtech LoRaMac-node dependency.  Currently supports the EU868 region.
   * :c:member:`lora_modem_config.sync_word`
+
+* Multimedia Pipeline
+
+  * Introducing :ref:`mpipe`, a new subsystem for building multimedia
+    applications out of reusable elements - sources, transforms and sinks -
+    linked together into a pipeline. It lets an application describe the media
+    flow it wants instead of driving each audio, video or display device itself.
 
 * Video
 
