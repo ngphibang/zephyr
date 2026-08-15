@@ -4068,6 +4068,7 @@ Multimedia Pipeline:
   maintainers:
     - ngphibang
   files:
+    - doc/services/mpipe/
     - include/zephyr/mpipe/
     - subsys/mpipe/
     - samples/subsys/mpipe/
