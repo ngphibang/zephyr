@@ -99,12 +99,6 @@ void mpipe_aud_src_update_caps(struct mpipe_src *src)
 	src->src_pad.enum_caps_fn = mpipe_aud_src_enum_caps;
 }
 
-/*
- * Buffer count is not a media capability, so it is settled through the
- * buffer pool query instead of caps: the pool is floored at what the source
- * device needs to keep streaming and raised to what downstream must hold in
- * flight, whichever is larger.
- */
 static int mpipe_aud_src_decide_buffer_pool(struct mpipe_src *src, struct mpipe_dispatch *query)
 {
 	struct mpipe_aud_src *aud_src = (struct mpipe_aud_src *)src;
@@ -117,8 +111,8 @@ static int mpipe_aud_src_decide_buffer_pool(struct mpipe_src *src, struct mpipe_
 	struct audio_caps src_caps;
 
 	/*
-	 * Floor the pool at the source device's own buffering requirement. Read
-	 * live rather than held in req_config: the device is only known once the
+	 * Start from the source device's own buffering requirement. Read live
+	 * rather than held in req_config: the device is only known once the
 	 * application has set it, which is after the pool is initialized.
 	 */
 	if (aud_src->get_audio_caps != NULL && pool->aud_dev != NULL &&
@@ -128,9 +122,19 @@ static int mpipe_aud_src_decide_buffer_pool(struct mpipe_src *src, struct mpipe_
 		pool_config->min_buffers = 0;
 	}
 
-	/* Raise it to what downstream needs held in flight, if higher */
-	if (qpc != NULL && qpc->min_buffers > pool_config->min_buffers) {
-		pool_config->min_buffers = qpc->min_buffers;
+	/*
+	 * One buffer sits on the pipeline thread between the acquire and the
+	 * sink consuming it, held by neither device.
+	 */
+	pool_config->min_buffers++;
+
+	/*
+	 * Add what downstream holds rather than take the larger of the two:
+	 * both sides draw from this pool at once, so sizing to the larger
+	 * starves the stream as soon as each holds its maximum.
+	 */
+	if (qpc != NULL) {
+		pool_config->min_buffers += qpc->min_buffers;
 	}
 
 	return 0;

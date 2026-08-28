@@ -42,18 +42,6 @@ static int mpipe_aud_buffer_pool_config(struct mpipe_buffer_pool *pool,
 		return -EINVAL;
 	}
 
-	/*
-	 * The buffer count was negotiated through the buffer pool query and left
-	 * in pool->config.min_buffers by mpipe_aud_src_decide_buffer_pool().
-	 *
-	 * TEMPORARY WORKAROUND: Adding 2 extra buffers beyond the negotiated count
-	 * because the current buffer management system requires additional buffers.
-	 *
-	 * TODO: Remove this hardcoded +2 offset when:
-	 * - Buffer lifecycle management is properly implemented
-	 * - Proper flow control prevents buffer starvation
-	 */
-	pool->config.min_buffers += MPIPE_AUD_BUFFER_POOL_EXTRA_BUFS;
 	pool->config.size = (bit_width / BITS_PER_BYTE) * (sample_rate * frame_interval / 1000000) *
 			    num_of_channel;
 	/* The address needs to be aligned to the size of the DMA transfer */
@@ -79,9 +67,9 @@ static int mpipe_aud_buffer_pool_config(struct mpipe_buffer_pool *pool,
 		return -EINVAL;
 	}
 
-	if (pool->config.min_buffers > MPIPE_AUD_BUFFER_POOL_BLOCKS_MAX) {
+	if (pool->config.min_buffers > CONFIG_MPIPE_AUD_BUFFER_POOL_NUM_MAX) {
 		LOG_ERR("%u blocks needed, MPIPE_AUD_BUFFER_POOL_NUM_MAX allows %d",
-			pool->config.min_buffers, MPIPE_AUD_BUFFER_POOL_BLOCKS_MAX);
+			pool->config.min_buffers, CONFIG_MPIPE_AUD_BUFFER_POOL_NUM_MAX);
 		return -EINVAL;
 	}
 

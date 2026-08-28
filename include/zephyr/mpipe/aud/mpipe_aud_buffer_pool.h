@@ -26,19 +26,6 @@
 #include <zephyr/mpipe/aud/mpipe_aud.h>
 
 /**
- * @brief Buffers the pool holds beyond the negotiated count.
- *
- * See the TEMPORARY WORKAROUND in mpipe_aud_buffer_pool_config(): the buffer
- * management currently needs a couple of spares. Named here because it also
- * sizes the block table.
- */
-#define MPIPE_AUD_BUFFER_POOL_EXTRA_BUFS 2
-
-/** @brief Upper bound on the blocks a pool can hold */
-#define MPIPE_AUD_BUFFER_POOL_BLOCKS_MAX                                                           \
-	(CONFIG_MPIPE_AUD_BUFFER_POOL_NUM_MAX + MPIPE_AUD_BUFFER_POOL_EXTRA_BUFS)
-
-/**
  * @struct mpipe_aud_buffer_pool
  * @brief Audio buffer pool structure
  *
@@ -56,7 +43,7 @@ struct mpipe_aud_buffer_pool {
 	 * Per-chunk pointers into the mem_slab backing buffer. Bounded by the
 	 * same Kconfig that sizes the pool, so the table needs no allocation.
 	 */
-	void *blocks[MPIPE_AUD_BUFFER_POOL_BLOCKS_MAX];
+	void *blocks[CONFIG_MPIPE_AUD_BUFFER_POOL_NUM_MAX];
 };
 
 /**

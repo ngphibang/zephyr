@@ -36,6 +36,11 @@ config MPIPE_AUD_BUFFER_POOL_NUM_MAX
 	help
 	  Upper bound on how many buffers the audio pool provides. Negotiation
 	  settles the number actually used, and this caps what it may ask for.
+	  It reports the count it needed when this bound refuses it.
+
+	  Size it for the sum of every concurrent holder, not the largest one: the
+	  capture device, whatever the sink keeps queued, and one buffer in transit
+	  on the pipeline thread all come out of this pool at the same time.
 
 	  Audio needs more slack than video: a codec starved of data produces an
 	  audible artifact rather than a dropped frame, so leave enough for the
