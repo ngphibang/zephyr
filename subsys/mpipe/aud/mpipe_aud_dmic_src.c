@@ -128,8 +128,18 @@ static int mpipe_aud_dmic_src_acquire_buffer(struct mpipe_buffer_pool *pool,
 		}
 	}
 
-	LOG_ERR("Unable to match DMIC buffer %p with mem_slab backing store", mem_block);
 	k_mem_slab_free(aud_pool->mem_slab, mem_block);
+
+	/*
+	 * A stopped pool means the pipeline tore the stream down while this
+	 * thread sat in dmic_read(). Report the flush, which the pipeline
+	 * expects, rather than a failure it would publish as an error.
+	 */
+	if (!pool->started) {
+		return -EPIPE;
+	}
+
+	LOG_ERR("Unable to match DMIC buffer %p with mem_slab backing store", mem_block);
 	return -ENOENT;
 }
 

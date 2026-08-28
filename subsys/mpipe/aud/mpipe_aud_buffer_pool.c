@@ -24,17 +24,6 @@ LOG_MODULE_REGISTER(mpipe_aud_buffer_pool, CONFIG_MPIPE_LOG_LEVEL);
 static __nocache __aligned(AUD_BUFFER_POOL_BASE_ALIGN)
 uint8_t aud_buffer_pool_buf[AUD_BUFFER_POOL_SIZE];
 
-static void mpipe_aud_buffer_pool_release(struct mpipe_aud_buffer_pool *aud_pool,
-					  bool clear_mem_slab)
-{
-	memset(aud_pool->blocks, 0, sizeof(aud_pool->blocks));
-
-	if ((aud_pool->mem_slab != NULL) && clear_mem_slab) {
-		aud_pool->mem_slab->buffer = NULL;
-		aud_pool->mem_slab = NULL;
-	}
-}
-
 static int mpipe_aud_buffer_pool_config(struct mpipe_buffer_pool *pool,
 					struct mpipe_structure *config)
 {
@@ -101,7 +90,7 @@ static int mpipe_aud_buffer_pool_config(struct mpipe_buffer_pool *pool,
 		return -EINVAL;
 	}
 
-	mpipe_aud_buffer_pool_release(aud_pool, false);
+	memset(aud_pool->blocks, 0, sizeof(aud_pool->blocks));
 
 	ret = k_mem_slab_init(aud_pool->mem_slab, (void *)aud_buffer_pool_buf, pool->config.size,
 			      pool->config.min_buffers);
@@ -120,15 +109,6 @@ static int mpipe_aud_buffer_pool_config(struct mpipe_buffer_pool *pool,
 	return 0;
 }
 
-static int mpipe_aud_buffer_pool_stop(struct mpipe_buffer_pool *pool)
-{
-	struct mpipe_aud_buffer_pool *aud_pool = (struct mpipe_aud_buffer_pool *)pool;
-
-	mpipe_aud_buffer_pool_release(aud_pool, true);
-
-	return 0;
-}
-
 void mpipe_aud_buffer_pool_init(struct mpipe_buffer_pool *pool)
 {
 	__ASSERT_NO_MSG(pool != NULL);
@@ -142,5 +122,4 @@ void mpipe_aud_buffer_pool_init(struct mpipe_buffer_pool *pool)
 	mpipe_buffer_pool_init(pool);
 
 	pool->configure = mpipe_aud_buffer_pool_config;
-	pool->stop = mpipe_aud_buffer_pool_stop;
 }
