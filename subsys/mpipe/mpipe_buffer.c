@@ -97,29 +97,25 @@ int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool)
 int mpipe_buffer_pool_stop(struct mpipe_buffer_pool *pool)
 {
 	int ret;
+	bool was_started;
 
 	__ASSERT_NO_MSG(pool != NULL);
 
-	/*
-	 * Forget what the run negotiated, before anything else: a pool that was
-	 * proposed and turned down never started, and still must not carry its
-	 * demands into the next run.
-	 */
+	was_started = pool->started;
+	pool->started = false;
 	pool->config = pool->req_config;
 
-	if (!pool->started) {
+	if (!was_started) {
 		return 0;
 	}
 
 	if (pool->stop == NULL) {
-		/* Mirror start: track the logical state even with no hook */
-		pool->started = false;
 		return -ENOSYS;
 	}
 
 	ret = pool->stop(pool);
-	if (ret == 0) {
-		pool->started = false;
+	if (ret != 0) {
+		pool->started = true;
 	}
 
 	return ret;
