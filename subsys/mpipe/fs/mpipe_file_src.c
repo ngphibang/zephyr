@@ -121,6 +121,7 @@ static int mpipe_file_src_pool_acquire_buffer(struct mpipe_buffer_pool *pool, st
 		m = mpipe_buffer_get_meta(out);
 		m->bytes_used = 0;
 		m->timestamp = 0;
+		out->len = 0;
 	} else {
 		out = net_buf_alloc_len(&mpipe_fs_nb_pool, CONFIG_MPIPE_FS_BLOCK_SIZE, K_NO_WAIT);
 		if (out == NULL) {
@@ -133,6 +134,7 @@ static int mpipe_file_src_pool_acquire_buffer(struct mpipe_buffer_pool *pool, st
 		m->timestamp = 0;
 		m->driver_buf = NULL;
 		m->priv = NULL;
+		out->len = 0;
 	}
 
 	ret = mpipe_file_src_read_chunk(fsrc, out);

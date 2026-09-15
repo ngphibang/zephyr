@@ -30,7 +30,7 @@ static int mpipe_transform_client_chain_fn(struct mpipe_pad *pad, struct net_buf
 	}
 
 	in_meta = mpipe_buffer_get_meta(in_buf);
-	in_used = in_meta ? in_meta->bytes_used : in_buf->len;
+	in_used = in_meta->bytes_used;
 
 	if (transform->out_pool->acquire_buffer(transform->out_pool, out_buf) != 0 ||
 	    *out_buf == NULL) {
@@ -39,7 +39,7 @@ static int mpipe_transform_client_chain_fn(struct mpipe_pad *pad, struct net_buf
 	}
 
 	out_meta = mpipe_buffer_get_meta(*out_buf);
-	out_used = out_meta ? out_meta->bytes_used : (*out_buf)->len;
+	out_used = out_meta->bytes_used;
 
 	/*
 	 * RPC interface uses 32-bit addresses (remote MCU).
@@ -55,10 +55,8 @@ static int mpipe_transform_client_chain_fn(struct mpipe_pad *pad, struct net_buf
 		return -EIO;
 	}
 
-	if (out_meta != NULL) {
-		out_meta->bytes_used = out_used;
-		out_meta->timestamp = k_uptime_get_32();
-	}
+	out_meta->bytes_used = out_used;
+	out_meta->timestamp = k_uptime_get_32();
 	(*out_buf)->len = out_used;
 
 	net_buf_unref(in_buf);

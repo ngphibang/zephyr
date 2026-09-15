@@ -133,6 +133,7 @@ static int vid_convert_pool_acquire(struct mpipe_buffer_pool *pool, struct net_b
 	meta->priv = NULL;
 	meta->bytes_used = 0;
 	meta->timestamp = 0;
+	(*out)->len = 0;
 
 	return 0;
 }
@@ -429,7 +430,8 @@ static int vid_convert_chain_fn(struct mpipe_pad *pad, struct net_buf *in_buf,
 		}
 
 		if (conv->in_pixfmt == conv->out_pixfmt) {
-			memcpy(out->data, cur->data, MIN(out_sz, (uint32_t)cur->len));
+			memcpy(out->data, cur->data,
+			       MIN(out_sz, mpipe_buffer_get_meta(cur)->bytes_used));
 		} else {
 			if (conv->desc->fn(conv, cur, out) != 0) {
 				LOG_ERR("Failed to convert pixel format");

@@ -259,6 +259,7 @@ static int mpipe_vid_buffer_pool_acquire_buffer(struct mpipe_buffer_pool *pool,
 	bm->driver_buf = vbuf;
 	bm->bytes_used = vbuf->bytesused;
 	bm->timestamp = vbuf->timestamp;
+	(*buf)->len = bm->bytes_used;
 
 	return ret;
 }
