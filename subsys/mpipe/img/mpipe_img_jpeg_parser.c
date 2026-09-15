@@ -381,8 +381,8 @@ static int mpipe_img_jpeg_parser_chain_fn(struct mpipe_pad *pad, struct net_buf 
 	return 0;
 }
 
-static enum mpipe_state_change_return
-mpipe_img_jpeg_parser_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
+static int mpipe_img_jpeg_parser_change_state(struct mpipe_element *self,
+					      enum mpipe_state_change transition)
 {
 	struct mpipe_img_jpeg_parser *jpeg_parser = (struct mpipe_img_jpeg_parser *)self;
 

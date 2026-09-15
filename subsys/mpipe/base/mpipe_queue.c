@@ -197,8 +197,8 @@ static void mpipe_queue_thread_func(void *p1, void *p2, void *p3)
 	LOG_DBG("Queue thread exiting");
 }
 
-static enum mpipe_state_change_return mpipe_queue_change_state(struct mpipe_element *element,
-							       enum mpipe_state_change transition)
+static int mpipe_queue_change_state(struct mpipe_element *element,
+				    enum mpipe_state_change transition)
 {
 	struct mpipe_queue *queue = (struct mpipe_queue *)element;
 	void *pause_ptr = &pause_sentinel;
@@ -210,7 +210,7 @@ static enum mpipe_state_change_return mpipe_queue_change_state(struct mpipe_elem
 		if (mpipe_thread_create(&queue->thread, mpipe_queue_thread_func, queue, NULL, NULL,
 					queue->thread.priority, K_FOREVER) == NULL) {
 			LOG_ERR("Failed to create a new queue thread");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -EAGAIN;
 		}
 		break;
 	case MPIPE_STATE_CHANGE_PAUSED_TO_PLAYING:

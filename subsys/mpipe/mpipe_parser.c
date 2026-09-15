@@ -189,8 +189,7 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 	}
 }
 
-enum mpipe_state_change_return mpipe_parser_change_state(struct mpipe_element *self,
-							 enum mpipe_state_change transition)
+int mpipe_parser_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
 {
 	struct mpipe_parser *parser = (struct mpipe_parser *)self;
 
@@ -211,7 +210,7 @@ enum mpipe_state_change_return mpipe_parser_change_state(struct mpipe_element *s
 		break;
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 int mpipe_parser_init(struct mpipe_parser *parser, uint8_t id)

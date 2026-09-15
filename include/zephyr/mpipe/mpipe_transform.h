@@ -215,10 +215,9 @@ int mpipe_transform_set_caps(struct mpipe_transform *transform, enum mpipe_pad_d
  * @param self Pointer to the @ref mpipe_element
  * @param transition Transition state, see @ref mpipe_state_change
  *
- * @return One of @ref mpipe_state_change_return
+ * @return 0 on success, negative errno otherwise
  */
-enum mpipe_state_change_return mpipe_transform_change_state(struct mpipe_element *self,
-							    enum mpipe_state_change transition);
+int mpipe_transform_change_state(struct mpipe_element *self, enum mpipe_state_change transition);
 
 /** @} */
 

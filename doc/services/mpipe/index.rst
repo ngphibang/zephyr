@@ -123,8 +123,7 @@ the graph to ``MPIPE_STATE_READY`` tears it down:
 
    ret = zbus_chan_add_obs(bus, &main_sub, K_FOREVER);
 
-   if (mpipe_element_set_state((struct mpipe_element *)&pipe, MPIPE_STATE_PLAYING) !=
-       MPIPE_STATE_CHANGE_SUCCESS) {
+   if (mpipe_element_set_state((struct mpipe_element *)&pipe, MPIPE_STATE_PLAYING) != 0) {
            /* the element that refused is still in its previous state */
    }
 

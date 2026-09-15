@@ -141,8 +141,8 @@ static void mpipe_player_set_state(struct mpipe_player *player, enum mpipe_state
 		enum mpipe_state from = pipe->current_state;
 		enum mpipe_state next = MPIPE_STATE_GET_NEXT(from, target);
 
-		/* Anything but SUCCESS leaves current_state in place: looping on would spin */
-		if (mpipe_element_set_state(pipe, next) != MPIPE_STATE_CHANGE_SUCCESS) {
+		/* Anything but 0 leaves current_state in place: looping on would spin */
+		if (mpipe_element_set_state(pipe, next) != 0) {
 			LOG_ERR("Failed to set pipeline to %s", mpipe_player_state_str(new_state));
 			mpipe_player_dump_transition(player, from, next, false);
 			return;

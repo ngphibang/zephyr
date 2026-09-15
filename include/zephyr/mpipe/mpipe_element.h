@@ -38,10 +38,11 @@
  * PAUSED to PLAYING lets data flow. Going back down reverses it, and PAUSED to
  * READY drops the negotiated capabilities so the next run negotiates afresh.
  *
- * A transition is reported with @ref mpipe_state_change_return. An element that
- * refuses one stays where it is; nothing unwinds the elements that already
- * moved, which is deliberate - the graph then shows exactly which element
- * refused and in which transition.
+ * A transition returns 0 when it completes and a negative errno when the
+ * element refuses it; -EINPROGRESS is reserved for a transition that completes
+ * asynchronously. An element that refuses one stays where it is; nothing
+ * unwinds the elements that already moved, which is deliberate - the graph
+ * then shows exactly which element refused and in which transition.
  *
  * @section mpipe_element_subclass Specializing an element
  *
@@ -152,20 +153,6 @@ enum mpipe_state_change {
 		MPIPE_STATE_TRANSITION(MPIPE_STATE_PAUSED, MPIPE_STATE_READY),
 };
 
-/**
- * @brief enum mpipe_state_change_return
- *
- * Possible returned values from a state change function
- */
-enum mpipe_state_change_return {
-	/** The state change has failed */
-	MPIPE_STATE_CHANGE_FAILURE = 0,
-	/** The state change has succeeded */
-	MPIPE_STATE_CHANGE_SUCCESS = 1,
-	/** The state change will happen asynchronously */
-	MPIPE_STATE_CHANGE_ASYNC = 2,
-};
-
 struct mpipe_element;
 
 /**
@@ -197,12 +184,10 @@ struct mpipe_element {
 	/** Current state of the element */
 	enum mpipe_state current_state;
 
-	/** Set state function */
-	enum mpipe_state_change_return (*set_state)(struct mpipe_element *element,
-						    enum mpipe_state state);
-	/** Change state function */
-	enum mpipe_state_change_return (*change_state)(struct mpipe_element *element,
-						       enum mpipe_state_change transition);
+	/** Set state function, 0 on success, negative errno otherwise */
+	int (*set_state)(struct mpipe_element *element, enum mpipe_state state);
+	/** Change state function, 0 on success, negative errno otherwise */
+	int (*change_state)(struct mpipe_element *element, enum mpipe_state_change transition);
 };
 
 /**
@@ -295,10 +280,11 @@ int mpipe_element_link(struct mpipe_element *element_1, struct mpipe_element *el
  *
  * @param element The element to change state of
  * @param state The element's new @ref mpipe_state
- * @return Result of the state change, one of @ref mpipe_state_change_return
+ * @return 0 on success, negative errno otherwise: -ENOSYS when the element has
+ *         no set_state hook, -EINPROGRESS (reserved) when the transition
+ *         completes asynchronously, else the errno of the element that refused.
  */
-enum mpipe_state_change_return mpipe_element_set_state(struct mpipe_element *element,
-						       enum mpipe_state state);
+int mpipe_element_set_state(struct mpipe_element *element, enum mpipe_state state);
 
 /**
  * @brief Get the bus channel of an element

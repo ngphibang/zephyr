@@ -194,11 +194,9 @@ static int mpipe_src_negotiate(struct mpipe_src *src)
 	return 0;
 }
 
-enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self,
-						      enum mpipe_state_change transition)
+int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
 {
 	struct mpipe_src *src = (struct mpipe_src *)self;
-	enum mpipe_state_change_return ret = MPIPE_STATE_CHANGE_SUCCESS;
 	int neg_ret;
 	int pool_ret;
 
@@ -216,7 +214,7 @@ enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self
 
 			LOG_ERR("Negotiation failed");
 			(void)mpipe_message_post(&msg);
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return neg_ret;
 		}
 
 		/* Config buffer pool */
@@ -231,7 +229,7 @@ enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self
 
 			LOG_ERR("Failed to configure source buffer pool");
 			(void)mpipe_message_post(&msg);
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return pool_ret;
 		}
 
 		/* Start buffer pool */
@@ -246,7 +244,7 @@ enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self
 
 			LOG_ERR("Failed to start source buffer pool");
 			(void)mpipe_message_post(&msg);
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return pool_ret;
 		}
 
 		break;
@@ -262,7 +260,7 @@ enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self
 		pool_ret = mpipe_buffer_pool_stop(src->pool);
 		if (pool_ret != 0 && pool_ret != -ENOSYS) {
 			LOG_ERR("Failed to stop source buffer pool");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return pool_ret;
 		}
 
 		mpipe_element_reset_pad_caps(self);
@@ -272,7 +270,7 @@ enum mpipe_state_change_return mpipe_src_change_state(struct mpipe_element *self
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 int mpipe_src_init(struct mpipe_src *src, uint8_t id)

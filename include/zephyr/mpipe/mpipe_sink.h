@@ -102,10 +102,9 @@ int mpipe_sink_init(struct mpipe_sink *sink, uint8_t id);
  * @param self Pointer to the @ref mpipe_element
  * @param transition Transition state, see @ref mpipe_state_change
  *
- * @return One of @ref mpipe_state_change_return
+ * @return 0 on success, negative errno otherwise
  */
-enum mpipe_state_change_return mpipe_sink_change_state(struct mpipe_element *self,
-						       enum mpipe_state_change transition);
+int mpipe_sink_change_state(struct mpipe_element *self, enum mpipe_state_change transition);
 
 /** @} */
 

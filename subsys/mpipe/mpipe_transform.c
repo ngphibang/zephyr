@@ -413,8 +413,7 @@ static int mpipe_transform_event(struct mpipe_pad *pad, struct mpipe_dispatch *e
 	}
 }
 
-enum mpipe_state_change_return mpipe_transform_change_state(struct mpipe_element *self,
-							    enum mpipe_state_change transition)
+int mpipe_transform_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
 {
 	struct mpipe_transform *transform = (struct mpipe_transform *)self;
 
@@ -435,7 +434,7 @@ enum mpipe_state_change_return mpipe_transform_change_state(struct mpipe_element
 		break;
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 int mpipe_transform_init(struct mpipe_transform *transform, uint8_t id)

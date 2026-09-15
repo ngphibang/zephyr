@@ -172,10 +172,10 @@ int mpipe_bin_add(struct mpipe_bin *bin, struct mpipe_element *element, ...);
  * @param element Pointer to the @ref mpipe_element (bin) changing state
  * @param transition The state transition being performed
  *
- * @return State change return value indicating success, failure, or async operation
+ * @return 0 on success, -ENOSPC when the bin holds more children than fit,
+ *         -EINVAL when they cannot be ordered, else the errno of the child that refused
  */
-enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element *element,
-							   enum mpipe_state_change transition);
+int mpipe_bin_change_state_func(struct mpipe_element *element, enum mpipe_state_change transition);
 
 /** @} */
 

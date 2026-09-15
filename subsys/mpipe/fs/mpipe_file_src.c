@@ -167,15 +167,15 @@ static int mpipe_file_src_pool_release_buffer(struct mpipe_buffer_pool *pool, st
 	return 0;
 }
 
-static enum mpipe_state_change_return
-mpipe_file_src_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
+static int mpipe_file_src_change_state(struct mpipe_element *self,
+				       enum mpipe_state_change transition)
 {
 	struct mpipe_file_src *fsrc = (struct mpipe_file_src *)self;
-	enum mpipe_state_change_return ret;
+	int ret;
 
 	/* Reuse base mpipe_src negotiation/pool start behavior */
 	ret = mpipe_src_change_state(self, transition);
-	if (ret != MPIPE_STATE_CHANGE_SUCCESS) {
+	if (ret != 0) {
 		return ret;
 	}
 
@@ -183,13 +183,14 @@ mpipe_file_src_change_state(struct mpipe_element *self, enum mpipe_state_change 
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
 		if (fsrc->path == NULL) {
 			LOG_ERR("No file path set");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -EINVAL;
 		}
 
 		fs_file_t_init(&fsrc->file);
-		if (fs_open(&fsrc->file, fsrc->path, FS_O_READ) != 0) {
-			LOG_ERR("Failed to open file: %s", fsrc->path);
-			return MPIPE_STATE_CHANGE_FAILURE;
+		ret = fs_open(&fsrc->file, fsrc->path, FS_O_READ);
+		if (ret != 0) {
+			LOG_ERR("Failed to open file: %s (%d)", fsrc->path, ret);
+			return ret;
 		}
 		fsrc->file_open = true;
 		LOG_DBG("File is open");
@@ -205,7 +206,7 @@ mpipe_file_src_change_state(struct mpipe_element *self, enum mpipe_state_change 
 		break;
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 int mpipe_file_src_init(struct mpipe_file_src *fsrc, uint8_t id)

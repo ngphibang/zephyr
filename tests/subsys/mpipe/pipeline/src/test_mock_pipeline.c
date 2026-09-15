@@ -102,9 +102,9 @@ ZTEST_F(test_mock_pipeline, test_pipeline_fake_src_transform_sink)
 	 * goes back to where it started.
 	 */
 	for (int run = 0; run < 3; run++) {
-		zassert_equal(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
-						      MPIPE_STATE_PLAYING),
-			      MPIPE_STATE_CHANGE_SUCCESS, "run %d failed to start PLAYING", run);
+		zassert_ok(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
+						   MPIPE_STATE_PLAYING),
+			   "run %d failed to start PLAYING", run);
 
 		/* Wait for EOS posted by the sink */
 		zassert_ok(zbus_sub_wait_msg(&test_pipeline_sub, &chan, &msg, K_FOREVER),
@@ -117,9 +117,9 @@ ZTEST_F(test_mock_pipeline, test_pipeline_fake_src_transform_sink)
 			      -ENOMSG, "run %d produced more than one message", run);
 
 		/* Bring pipeline back to READY and join the thread */
-		zassert_equal(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
-						      MPIPE_STATE_READY),
-			      MPIPE_STATE_CHANGE_SUCCESS, "run %d failed to return to READY", run);
+		zassert_ok(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
+						   MPIPE_STATE_READY),
+			   "run %d failed to return to READY", run);
 	}
 
 	/* Detach the runtime observer */

@@ -320,9 +320,8 @@ int mpipe_aud_i2s_codec_sink_chain_fn(struct mpipe_pad *pad, struct net_buf *in_
 	return 0;
 }
 
-static enum mpipe_state_change_return
-mpipe_aud_i2s_codec_sink_change_state(struct mpipe_element *self,
-				      enum mpipe_state_change transition)
+static int mpipe_aud_i2s_codec_sink_change_state(struct mpipe_element *self,
+						 enum mpipe_state_change transition)
 {
 	struct mpipe_aud_i2s_codec_sink *aud_i2s_codec_sink =
 		(struct mpipe_aud_i2s_codec_sink *)self;

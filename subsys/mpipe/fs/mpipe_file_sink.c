@@ -78,8 +78,8 @@ static int mpipe_file_sink_chain_fn(struct mpipe_pad *pad, struct net_buf *in_bu
 	return 0;
 }
 
-static enum mpipe_state_change_return
-mpipe_file_sink_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
+static int mpipe_file_sink_change_state(struct mpipe_element *self,
+					enum mpipe_state_change transition)
 {
 	struct mpipe_file_sink *fsink = (struct mpipe_file_sink *)self;
 	int ret;
@@ -88,7 +88,7 @@ mpipe_file_sink_change_state(struct mpipe_element *self, enum mpipe_state_change
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
 		if (fsink->path == NULL) {
 			LOG_ERR("No file path set");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -EINVAL;
 		}
 
 		fs_file_t_init(&fsink->file);
@@ -96,7 +96,7 @@ mpipe_file_sink_change_state(struct mpipe_element *self, enum mpipe_state_change
 		ret = fs_open(&fsink->file, fsink->path, FS_O_CREATE | FS_O_WRITE);
 		if (ret != 0) {
 			LOG_ERR("Failed to open file: %s (%d)", fsink->path, ret);
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return ret;
 		}
 		LOG_INF("Opened file for write: %s", fsink->path);
 		fsink->file_open = true;

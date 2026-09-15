@@ -119,8 +119,7 @@ int mpipe_element_link(struct mpipe_element *element, struct mpipe_element *next
 	return 0;
 }
 
-enum mpipe_state_change_return mpipe_element_set_state(struct mpipe_element *element,
-						       enum mpipe_state state)
+int mpipe_element_set_state(struct mpipe_element *element, enum mpipe_state state)
 {
 	__ASSERT_NO_MSG(element != NULL);
 
@@ -128,13 +127,12 @@ enum mpipe_state_change_return mpipe_element_set_state(struct mpipe_element *ele
 		return element->set_state(element, state);
 	}
 
-	return MPIPE_STATE_CHANGE_FAILURE;
+	return -ENOSYS;
 }
 
-static enum mpipe_state_change_return mpipe_element_set_state_func(struct mpipe_element *element,
-								   enum mpipe_state state)
+static int mpipe_element_set_state_func(struct mpipe_element *element, enum mpipe_state state)
 {
-	enum mpipe_state_change_return ret = MPIPE_STATE_CHANGE_SUCCESS;
+	int ret = 0;
 	enum mpipe_state_change transition;
 	enum mpipe_state next;
 	enum mpipe_state *current = &element->current_state;
@@ -143,8 +141,8 @@ static enum mpipe_state_change_return mpipe_element_set_state_func(struct mpipe_
 		next = MPIPE_STATE_GET_NEXT(*current, state);
 		transition = MPIPE_STATE_TRANSITION(*current, next);
 		ret = element->change_state(element, transition);
-		/* Do not handle ASYNC yet */
-		if (ret != MPIPE_STATE_CHANGE_SUCCESS) {
+		/* -EINPROGRESS (asynchronous) is not handled yet and propagates as is */
+		if (ret != 0) {
 			return ret;
 		}
 
@@ -154,8 +152,8 @@ static enum mpipe_state_change_return mpipe_element_set_state_func(struct mpipe_
 	return ret;
 }
 
-static enum mpipe_state_change_return
-mpipe_element_change_state_func(struct mpipe_element *element, enum mpipe_state_change transition)
+static int mpipe_element_change_state_func(struct mpipe_element *element,
+					   enum mpipe_state_change transition)
 {
 	switch (transition) {
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
@@ -175,7 +173,7 @@ mpipe_element_change_state_func(struct mpipe_element *element, enum mpipe_state_
 		break;
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 struct zbus_channel *mpipe_element_get_bus_chan(struct mpipe_element *element)

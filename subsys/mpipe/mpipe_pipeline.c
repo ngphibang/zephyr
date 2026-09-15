@@ -339,11 +339,11 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 	LOG_DBG("Pipeline thread exiting");
 }
 
-static enum mpipe_state_change_return
-mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_change transition)
+static int mpipe_pipeline_change_state(struct mpipe_element *element,
+				       enum mpipe_state_change transition)
 {
 	struct mpipe *pipeline = (struct mpipe *)element;
-	enum mpipe_state_change_return ret;
+	int ret;
 
 	/*
 	 * DOWN: Pipeline thread should be handled before children state change, i.e. source needs
@@ -380,7 +380,7 @@ mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_chan
 	/* Children state change: UP = sink-to-source, DOWN = source-to-sink */
 	ret = mpipe_bin_change_state_func(element, transition);
 
-	if (ret != MPIPE_STATE_CHANGE_SUCCESS) {
+	if (ret != 0) {
 		return ret;
 	}
 
@@ -411,7 +411,7 @@ mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_chan
 		if (mpipe_thread_create(&pipeline->thread, mpipe_pipeline_thread_func, element,
 					NULL, NULL, pipeline->thread.priority, K_FOREVER) == NULL) {
 			LOG_ERR("Failed to create a new pipeline thread");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -EAGAIN;
 		}
 
 		/*
@@ -432,7 +432,7 @@ mpipe_pipeline_change_state(struct mpipe_element *element, enum mpipe_state_chan
 	LOG_DBG("Pipeline id %u has changed state to %u", element->object.id,
 		MPIPE_STATE_TRANSITION_NEXT(transition));
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 int mpipe_pipeline_init(struct mpipe *pipe, uint8_t id)

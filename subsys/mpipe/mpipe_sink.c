@@ -90,8 +90,7 @@ static int mpipe_sink_chain_fn(struct mpipe_pad *pad, struct net_buf *in_buf,
 	return 0;
 }
 
-enum mpipe_state_change_return mpipe_sink_change_state(struct mpipe_element *self,
-						       enum mpipe_state_change transition)
+int mpipe_sink_change_state(struct mpipe_element *self, enum mpipe_state_change transition)
 {
 	switch (transition) {
 	case MPIPE_STATE_CHANGE_PAUSED_TO_READY:
@@ -101,7 +100,7 @@ enum mpipe_state_change_return mpipe_sink_change_state(struct mpipe_element *sel
 		break;
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 int mpipe_sink_init(struct mpipe_sink *sink, uint8_t id)

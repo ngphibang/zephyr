@@ -161,8 +161,7 @@ int main(void)
 	}
 
 	/* Start playing */
-	if (mpipe_element_set_state((struct mpipe_element *)&pipe, MPIPE_STATE_PLAYING) !=
-	    MPIPE_STATE_CHANGE_SUCCESS) {
+	if (mpipe_element_set_state((struct mpipe_element *)&pipe, MPIPE_STATE_PLAYING) != 0) {
 		LOG_ERR("Failed to start pipeline");
 		goto err_set_state;
 	}

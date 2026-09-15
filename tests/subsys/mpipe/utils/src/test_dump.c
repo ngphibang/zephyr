@@ -172,9 +172,9 @@ ZTEST_F(test_dump, test_dump_shows_negotiated_caps)
 	zassert_not_null(strstr(fixture->capture.buf, "<any>"),
 			 "An un-negotiated pad should render as <any>:\n%s", fixture->capture.buf);
 
-	zassert_equal(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
-					      MPIPE_STATE_PAUSED),
-		      MPIPE_STATE_CHANGE_SUCCESS, "Pipeline failed to reach PAUSED");
+	zassert_ok(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
+					   MPIPE_STATE_PAUSED),
+		   "Pipeline failed to reach PAUSED");
 
 	test_dump_reset(fixture);
 	zassert_ok(mpipe_dump_bin((struct mpipe_bin *)&fixture->pipeline, &fixture->sink_cfg));
@@ -187,9 +187,9 @@ ZTEST_F(test_dump, test_dump_shows_negotiated_caps)
 	zassert_is_null(strstr(fixture->capture.buf, "READY"),
 			"An element was left behind at READY:\n%s", fixture->capture.buf);
 
-	zassert_equal(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
-					      MPIPE_STATE_READY),
-		      MPIPE_STATE_CHANGE_SUCCESS, "Pipeline failed to return to READY");
+	zassert_ok(mpipe_element_set_state((struct mpipe_element *)&fixture->pipeline,
+					   MPIPE_STATE_READY),
+		   "Pipeline failed to return to READY");
 }
 
 /* The rendering has to be a graph dot(1) can actually lay out */

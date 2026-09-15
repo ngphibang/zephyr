@@ -126,8 +126,7 @@ static void mpipe_bin_decrement_peer_degrees(sys_dlist_t *pad_list,
 	}
 }
 
-enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element *self,
-							   enum mpipe_state_change transition)
+int mpipe_bin_change_state_func(struct mpipe_element *self, enum mpipe_state_change transition)
 {
 	struct mpipe_bin *bin = (struct mpipe_bin *)self;
 	struct mpipe_object *obj;
@@ -154,7 +153,7 @@ enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element 
 	SYS_DLIST_FOR_EACH_CONTAINER(&bin->children, obj, node) {
 		if (num_elements >= CONFIG_MPIPE_BIN_MAX_CHILDREN) {
 			LOG_ERR("Too many elements in bin (max %d)", CONFIG_MPIPE_BIN_MAX_CHILDREN);
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -ENOSPC;
 		}
 
 		struct mpipe_element *elem = (struct mpipe_element *)obj;
@@ -187,10 +186,10 @@ enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element 
 			processed++;
 
 			/* Change state of this element */
-			enum mpipe_state_change_return ret;
+			int ret;
 
 			ret = elements[i]->change_state(elements[i], transition);
-			if (ret != MPIPE_STATE_CHANGE_SUCCESS) {
+			if (ret != 0) {
 				return ret;
 			}
 
@@ -211,11 +210,11 @@ enum mpipe_state_change_return mpipe_bin_change_state_func(struct mpipe_element 
 
 		if (!found) {
 			LOG_ERR("Cycle detected in pipeline topology or unlinked element");
-			return MPIPE_STATE_CHANGE_FAILURE;
+			return -EINVAL;
 		}
 	}
 
-	return MPIPE_STATE_CHANGE_SUCCESS;
+	return 0;
 }
 
 /*

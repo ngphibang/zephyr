@@ -67,7 +67,6 @@ ZTEST(mpipe_structure_api, test_new)
 
 	zassert_equal(mpipe_structure_append_value(&si, MPIPE_CAPS_SAMPLE_RATE, &dup_val), -EEXIST,
 		      "duplicate field != -EEXIST");
-
 }
 
 ZTEST(mpipe_structure_api, test_is_fixed_fixate_duplicate)
