@@ -128,11 +128,11 @@ struct mpipe_transform {
 	 *                  (@ref mpipe_pad_direction)
 	 * @param in Capability on the opposite pad to transform
 	 * @param index Index of the transformation to produce, starting at 0
-	 * @param out Caller storage receiving the transformation
+	 * @param[out] out Caller storage receiving the transformation
 	 *
-	 * @return 0 when @p out holds a transformation, -EAGAIN when this index
-	 *         produces none but a later one may, -ENOENT past the last one,
-	 *         or another negative errno on failure
+	 * @return 0 when @p out holds a transformation, another negative errno on failure
+	 * @retval -EAGAIN This index produces none but a later one may
+	 * @retval -ENOENT Past the last transformation
 	 */
 	int (*transform_caps)(struct mpipe_transform *self, enum mpipe_pad_direction direction,
 			      const struct mpipe_structure *in, uint32_t index,

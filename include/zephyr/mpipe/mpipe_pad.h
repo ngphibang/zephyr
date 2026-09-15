@@ -172,10 +172,11 @@ struct mpipe_pad {
  * @param pad Pad to enumerate.
  * @param index Zero-based index of the capability.
  * @param filter Optional structure to narrow the capability by, may be NULL.
- * @param out Storage for the capability, released with @ref mpipe_structure_clear.
+ * @param[out] out Storage for the capability, released with @ref mpipe_structure_clear.
  *
- * @return 0 on success, -EAGAIN if this index cannot satisfy @p filter,
- *         -ENOENT past the last capability
+ * @retval 0 on success
+ * @retval -EAGAIN This index cannot satisfy @p filter
+ * @retval -ENOENT Past the last capability
  */
 int mpipe_pad_enum_caps(struct mpipe_pad *pad, uint32_t index, const struct mpipe_structure *filter,
 			struct mpipe_structure *out);
@@ -185,9 +186,10 @@ int mpipe_pad_enum_caps(struct mpipe_pad *pad, uint32_t index, const struct mpip
  *
  * @param pad Pad to enumerate.
  * @param filter Capability to narrow by, may be NULL or ANY.
- * @param out Storage for the capability, released with @ref mpipe_structure_clear.
+ * @param[out] out Storage for the capability, released with @ref mpipe_structure_clear.
  *
- * @return 0 on success, -ENODATA if no capability is accepted
+ * @retval 0 on success
+ * @retval -ENODATA No capability is accepted
  */
 int mpipe_pad_enum_first(struct mpipe_pad *pad, const struct mpipe_structure *filter,
 			 struct mpipe_structure *out);
@@ -202,8 +204,8 @@ int mpipe_pad_enum_first(struct mpipe_pad *pad, const struct mpipe_structure *fi
  * @param pad Pad to enumerate.
  * @param query Caps query to answer, carrying the filter on entry.
  *
- * @return 0 on success, -ENODATA if the pad has no capability the filter
- *         accepts, negative errno on other failures
+ * @return 0 on success, negative errno on other failures
+ * @retval -ENODATA The pad has no capability the filter accepts
  */
 int mpipe_pad_answer_caps_query(struct mpipe_pad *pad, struct mpipe_dispatch *query);
 
@@ -216,7 +218,7 @@ int mpipe_pad_answer_caps_query(struct mpipe_pad *pad, struct mpipe_dispatch *qu
  *
  * @param candidate Pointer to the capability this index produced.
  * @param filter Capability to narrow by, may be NULL.
- * @param out Pointer to storage for the result.
+ * @param[out] out Pointer to storage for the result.
  *
  * @retval 0 Success.
  * @retval -EAGAIN @p candidate cannot satisfy @p filter

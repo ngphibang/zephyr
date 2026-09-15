@@ -101,7 +101,7 @@ int mpipe_aud_enum_caps(const struct audio_caps *caps, uint32_t index,
  *
  * @param caps Pointer to the capability to read from.
  * @param field_id Field identifier, see @ref mpipe_caps_field.
- * @param out Pointer to storage for the value, untouched unless 0 is returned.
+ * @param[out] out Pointer to storage for the value, untouched unless 0 is returned.
  *
  * @retval 0 Success.
  * @retval -ENOENT The capability does not carry the field

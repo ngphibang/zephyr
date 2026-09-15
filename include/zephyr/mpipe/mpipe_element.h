@@ -280,9 +280,9 @@ int mpipe_element_link(struct mpipe_element *element_1, struct mpipe_element *el
  *
  * @param element The element to change state of
  * @param state The element's new @ref mpipe_state
- * @return 0 on success, negative errno otherwise: -ENOSYS when the element has
- *         no set_state hook, -EINPROGRESS (reserved) when the transition
- *         completes asynchronously, else the errno of the element that refused.
+ * @return 0 on success, else the errno of the element that refused a transition
+ * @retval -ENOSYS The element has no set_state hook
+ * @retval -EINPROGRESS Reserved: the transition completes asynchronously
  */
 int mpipe_element_set_state(struct mpipe_element *element, enum mpipe_state state);
 

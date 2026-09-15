@@ -172,8 +172,9 @@ int mpipe_bin_add(struct mpipe_bin *bin, struct mpipe_element *element, ...);
  * @param element Pointer to the @ref mpipe_element (bin) changing state
  * @param transition The state transition being performed
  *
- * @return 0 on success, -ENOSPC when the bin holds more children than fit,
- *         -EINVAL when they cannot be ordered, else the errno of the child that refused
+ * @return 0 on success, else the errno of the child that refused
+ * @retval -ENOSPC The bin holds more children than fit
+ * @retval -EINVAL Children cannot be ordered
  */
 int mpipe_bin_change_state_func(struct mpipe_element *element, enum mpipe_state_change transition);
 

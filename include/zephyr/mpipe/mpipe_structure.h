@@ -325,7 +325,7 @@ int mpipe_structure_append_value(struct mpipe_structure *structure, uint8_t fiel
  * each of them first.
  *
  * @param src Pointer to the structure to read the field from.
- * @param dst Pointer to the structure to append the field to.
+ * @param[in,out] dst Pointer to the structure to append the field to.
  * @param field_id Field identifier, see @ref mpipe_caps_field.
  *
  * @retval 0 Success.

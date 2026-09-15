@@ -105,10 +105,9 @@ void mpipe_object_init(struct mpipe_object *obj);
  * @param ... A variable list of {uint32_t key, const void *val} pairs, terminated by
  * MPIPE_PROP_LIST_END.
  *
- * @retval 0 Success.
+ * @return 0 on success, else the first failing setter's error, leaving the
+ *         remaining pairs unapplied
  * @retval -ENOTSUP The object exposes no property setter
- * @retval -errno the first failing setter's error, leaving the remaining pairs
- *         unapplied
  */
 int mpipe_object_set_properties(struct mpipe_object *obj, ...);
 
@@ -128,10 +127,9 @@ int mpipe_object_set_properties(struct mpipe_object *obj, ...);
  * @param obj Pointer to a @ref mpipe_object.
  * @param ... A variable list of {uint32_t key, void *val} pairs, terminated by MPIPE_PROP_LIST_END.
  *
- * @retval 0 Success.
+ * @return 0 on success, else the first failing getter's error, leaving the
+ *         remaining pairs unread
  * @retval -ENOTSUP The object exposes no property getter
- * @retval -errno the first failing getter's error, leaving the remaining pairs
- *         unread
  */
 int mpipe_object_get_properties(struct mpipe_object *obj, ...);
 

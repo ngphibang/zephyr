@@ -7,7 +7,8 @@
 
 /**
  * @file
- * @brief Software JPEG decoder API.
+ * @brief Software JPEG decoder.
+ * @ingroup mpipe_img_jpeg_dec
  *
  * Exposes the C API and state structures for the software JPEG decoder
  * integrated into the mpipe img plugin.
@@ -21,7 +22,7 @@
 #define ZEPHYR_INCLUDE_MPIPE_IMG_JPEG_DEC_H_
 
 /**
- * @defgroup JPEG_decoder_api Decoder API
+ * @defgroup mpipe_img_jpeg_dec Software JPEG Decoder
  * @ingroup mpipe_img
  * @brief Software JPEG decoder helper APIs.
  * @{
@@ -325,7 +326,7 @@ int JPEG_openRAM(JPEGIMAGE *pJPEG, uint8_t *pData, int iDataSize, JPEG_DRAW_CALL
  * @brief Set the output framebuffer pointer.
  *
  * @param pJPEG        Pointer to decoder state.
- * @param pFramebuffer Pointer to the output framebuffer.
+ * @param[out] pFramebuffer Pointer to the output framebuffer.
  */
 void JPEG_setFramebuffer(JPEGIMAGE *pJPEG, void *pFramebuffer);
 
@@ -442,8 +443,8 @@ int JPEG_getLastError(JPEGIMAGE *pJPEG);
  *
  * @param pJPEG Pointer to decoder state.
  *
- * @retval 1 if thumbnail is present.
- * @retval 0 if no thumbnail.
+ * @retval 1 A thumbnail is present.
+ * @retval 0 No thumbnail.
  */
 int JPEG_hasThumb(JPEGIMAGE *pJPEG);
 

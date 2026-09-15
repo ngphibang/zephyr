@@ -39,7 +39,7 @@ struct mpipe_vid_convert;
  *
  * @param conv Pointer to the convert element holding negotiated parameters.
  * @param in   Input buffer containing the source frame.
- * @param out  Output buffer to receive the converted frame.
+ * @param[out] out  Output buffer to receive the converted frame.
  *
  * @return 0 on success or a negative errno code on failure.
  */

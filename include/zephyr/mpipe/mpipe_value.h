@@ -107,19 +107,43 @@ struct mpipe_value {
  * range forms take the bounds and the step between two consecutive values.
  * @{
  */
-/** Initialize an MPIPE_TYPE_BOOLEAN value holding @p v */
+/**
+ * @brief Initialize an MPIPE_TYPE_BOOLEAN value
+ *
+ * @param v Boolean the value holds
+ */
 #define MPIPE_VALUE_BOOLEAN(v)                {.type = MPIPE_TYPE_BOOLEAN, .v_boolean = (v)}
-/** Initialize an MPIPE_TYPE_INT value holding @p v */
+/**
+ * @brief Initialize an MPIPE_TYPE_INT value
+ *
+ * @param v Signed integer the value holds
+ */
 #define MPIPE_VALUE_INT(v)                    {.type = MPIPE_TYPE_INT, .v_int = (v)}
-/** Initialize an MPIPE_TYPE_UINT value holding @p v */
+/**
+ * @brief Initialize an MPIPE_TYPE_UINT value
+ *
+ * @param v Unsigned integer the value holds
+ */
 #define MPIPE_VALUE_UINT(v)                   {.type = MPIPE_TYPE_UINT, .v_uint = (v)}
 /** @cond INTERNAL_HIDDEN */
 #define MPIPE_VALUE_RANGE_INIT(m, lo, hi, st) {.min.m = (lo), .max.m = (hi), .step.m = (st)}
 /** @endcond */
-/** Initialize an MPIPE_TYPE_INT_RANGE value spanning @p lo to @p hi by @p st */
+/**
+ * @brief Initialize an MPIPE_TYPE_INT_RANGE value
+ *
+ * @param lo Lowest value of the range, inclusive
+ * @param hi Highest value of the range, inclusive
+ * @param st Step between two consecutive values
+ */
 #define MPIPE_VALUE_INT_RANGE(lo, hi, st)                                                          \
 	{.type = MPIPE_TYPE_INT_RANGE, .range = MPIPE_VALUE_RANGE_INIT(v_int, lo, hi, st)}
-/** Initialize an MPIPE_TYPE_UINT_RANGE value spanning @p lo to @p hi by @p st */
+/**
+ * @brief Initialize an MPIPE_TYPE_UINT_RANGE value
+ *
+ * @param lo Lowest value of the range, inclusive
+ * @param hi Highest value of the range, inclusive
+ * @param st Step between two consecutive values
+ */
 #define MPIPE_VALUE_UINT_RANGE(lo, hi, st)                                                         \
 	{.type = MPIPE_TYPE_UINT_RANGE, .range = MPIPE_VALUE_RANGE_INIT(v_uint, lo, hi, st)}
 /** @} */
@@ -130,14 +154,15 @@ struct mpipe_value {
  * BOOLEAN, INT and UINT take one argument; the range types take min, max
  * and step.
  *
- * @param value Pointer to the value to set.
+ * @param[out] value Pointer to the value to set.
  * @param type Type of the value, see @ref mpipe_value_type. It is an int and not
  *             the enum itself because va_start() starts reading right after
  *             this parameter, so the parameter cannot be of a type narrower
  *             than int, which an enum is allowed to be.
  * @param ... Arguments initializing the value, per the rules above.
  *
- * @return 0 on success, -EINVAL if @p type is invalid
+ * @retval 0 on success
+ * @retval -EINVAL @p type is invalid
  */
 int mpipe_value_set(struct mpipe_value *value, int type, ...);
 
@@ -147,11 +172,12 @@ int mpipe_value_set(struct mpipe_value *value, int type, ...);
  * Same as @ref mpipe_value_set but accepts a va_list pointer instead of variadic
  * arguments, so a caller parsing its own list can build a value in place.
  *
- * @param value Pointer to the value to set.
+ * @param[out] value Pointer to the value to set.
  * @param type Type of the value, see @ref mpipe_value_type.
  * @param args Pointer to a va_list positioned at this value's arguments.
  *
- * @return 0 on success, -EINVAL if @p type is invalid
+ * @retval 0 on success
+ * @retval -EINVAL @p type is invalid
  */
 int mpipe_value_set_va_list(struct mpipe_value *value, enum mpipe_value_type type, va_list *args);
 
@@ -244,7 +270,7 @@ uint32_t mpipe_value_get_uint_range_step(const struct mpipe_value *range);
  *
  * @param val1 Pointer to the first value.
  * @param val2 Pointer to the second value.
- * @param out Pointer to storage for the result, untouched unless 0 is returned.
+ * @param[out] out Pointer to storage for the result, untouched unless 0 is returned.
  *
  * @retval 0 Success.
  * @retval -ENOENT The intersection is empty

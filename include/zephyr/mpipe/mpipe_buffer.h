@@ -163,7 +163,7 @@ static inline struct mpipe_buffer_meta *mpipe_buffer_get_meta(struct net_buf *bu
 void mpipe_buffer_destroy(struct net_buf *buf);
 
 /**
- * @brief Helper to configure a buffer pool
+ * @brief Configure a buffer pool
  *
  * @param pool Pointer to the buffer pool to configure
  * @param config Caps structure to configure the buffer pool
@@ -218,7 +218,7 @@ int mpipe_buffer_pool_set_config(struct mpipe_buffer_pool *pool,
 				 const struct mpipe_buffer_pool_config *cfg);
 
 /**
- * @brief Helper to start a buffer pool
+ * @brief Start a buffer pool
  *
  * @param pool Pointer to the buffer pool to start
  *
@@ -227,7 +227,7 @@ int mpipe_buffer_pool_set_config(struct mpipe_buffer_pool *pool,
 int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool);
 
 /**
- * @brief Helper to stop a buffer pool
+ * @brief Stop a buffer pool
  *
  * Also restores @ref mpipe_buffer_pool::config from
  * @ref mpipe_buffer_pool::req_config, which is what keeps one run's negotiated

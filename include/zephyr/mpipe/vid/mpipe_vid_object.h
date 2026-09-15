@@ -80,10 +80,11 @@ struct mpipe_vid_object {
  * @param vid_obj Video object to enumerate.
  * @param index Zero-based index of the device format entry.
  * @param filter Optional structure to narrow the capability by, may be NULL.
- * @param out Storage for the capability, released with @ref mpipe_structure_clear.
+ * @param[out] out Storage for the capability, released with @ref mpipe_structure_clear.
  *
- * @return 0 on success, -EAGAIN if this index cannot satisfy @p filter,
- *         -ENOENT past the last format entry, negative errno on failure
+ * @return 0 on success, negative errno on failure
+ * @retval -EAGAIN This index cannot satisfy @p filter
+ * @retval -ENOENT Past the last format entry
  */
 int mpipe_vid_object_enum_caps(struct mpipe_vid_object *vid_obj, uint32_t index,
 			       const struct mpipe_structure *filter, struct mpipe_structure *out);
@@ -106,7 +107,7 @@ int mpipe_vid_object_probe_bounds(struct mpipe_vid_object *vid_obj);
  * @brief Convert a capability to a @ref video_format_cap.
  *
  * @param caps Pointer to the capability holding the video format information.
- * @param vfc  Pointer to @ref video_format_cap to populate.
+ * @param[out] vfc  Pointer to @ref video_format_cap to populate.
  *
  * @return 0 on success or a negative errno code on failure.
  */
@@ -122,7 +123,7 @@ int mpipe_vid_caps_to_vfc(const struct mpipe_structure *caps, struct video_forma
  *
  * @param caps Pointer to the fixed capability to convert.
  * @param type Buffer type of the device the format is meant for.
- * @param fmt  Pointer to @ref video_format to populate.
+ * @param[out] fmt  Pointer to @ref video_format to populate.
  *
  * @return 0 on success or a negative errno code on failure.
  */
@@ -136,7 +137,7 @@ int mpipe_vid_caps_to_format(const struct mpipe_structure *caps, enum video_buf_
  * reports can be described on the stack.
  *
  * @param vfc Pointer to the @ref video_format_cap to describe.
- * @param out Pointer to the capability to populate.
+ * @param[out] out Pointer to the capability to populate.
  *
  * @return 0 on success or a negative errno code on failure.
  */
@@ -158,7 +159,7 @@ int mpipe_vid_object_set_property(struct mpipe_vid_object *vid_obj, uint32_t key
  *
  * @param vid_obj Pointer to the @ref mpipe_vid_object.
  * @param key      Property key / control ID to retrieve.
- * @param val      Pointer to store the retrieved property value.
+ * @param[out] val      Pointer to store the retrieved property value.
  *
  * @return 0 on success or a negative errno code on failure.
  */

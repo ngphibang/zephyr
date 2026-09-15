@@ -62,7 +62,7 @@ struct mpipe_vid_transform_client {
 	 *
 	 * @param direction Pad direction (see @ref mpipe_pad_direction).
 	 * @param ind       Index to iterate through available capabilities.
-	 * @param vfc       Output: video format capability at @p ind.
+	 * @param[out] vfc       Output: video format capability at @p ind.
 	 *
 	 * @return 0 on success or a negative errno code on failure.
 	 */
@@ -71,7 +71,7 @@ struct mpipe_vid_transform_client {
 	/**
 	 * @brief RPC callback to set the video format.
 	 *
-	 * @param fmt Video format to apply; the server may update size and pitch.
+	 * @param[in,out] fmt Video format to apply; the server may update size and pitch.
 	 *
 	 * @return 0 on success or a negative errno code on failure.
 	 */

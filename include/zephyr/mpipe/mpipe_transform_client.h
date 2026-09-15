@@ -42,7 +42,7 @@ struct mpipe_transform_client {
 	 *
 	 * @param in_buf Address of the input buffer to be processed
 	 * @param in_sz Input buffer size
-	 * @param out_buf Address of the processed output buffer
+	 * @param[out] out_buf Address of the processed output buffer
 	 * @param out_sz Output buffer size
 	 * @return 0 on success, an errno on failure
 	 */

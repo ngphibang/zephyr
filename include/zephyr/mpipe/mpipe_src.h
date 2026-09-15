@@ -126,7 +126,7 @@ int mpipe_src_set_property(struct mpipe_object *obj, uint32_t key, const void *v
  *
  * @param obj Pointer to the @ref mpipe_object (source element)
  * @param key Property key identifier
- * @param val Pointer to store the retrieved property value
+ * @param[out] val Pointer to store the retrieved property value
  * @return 0 on success, negative errno on failure
  */
 int mpipe_src_get_property(struct mpipe_object *obj, uint32_t key, void *val);
