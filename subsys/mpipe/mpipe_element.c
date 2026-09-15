@@ -199,7 +199,7 @@ struct zbus_channel *mpipe_element_get_bus_chan(struct mpipe_element *element)
 	return &((struct mpipe_bin *)bin)->bus.channel;
 }
 
-int mpipe_message_post(struct mpipe_message *message)
+int mpipe_message_post(const struct mpipe_message *message)
 {
 	struct zbus_channel *chan;
 

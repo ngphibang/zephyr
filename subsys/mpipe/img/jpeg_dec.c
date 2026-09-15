@@ -543,7 +543,7 @@ static const uint16_t usRangeTableB[] = {
 	0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
 	0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
 	0,      0,      0,      0,      0,      0,      0,      0,      0};
-int JPEG_openRAM(JPEGIMAGE *pJPEG, uint8_t *pData, int iDataSize, JPEG_DRAW_CALLBACK *pfnDraw)
+int JPEG_openRAM(JPEGIMAGE *pJPEG, const uint8_t *pData, int iDataSize, JPEG_DRAW_CALLBACK *pfnDraw)
 {
 	memset(pJPEG, 0, sizeof(JPEGIMAGE));
 	pJPEG->ucMemType = JPEG_MEM_RAM;

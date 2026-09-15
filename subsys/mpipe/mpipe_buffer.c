@@ -25,7 +25,8 @@ void mpipe_buffer_destroy(struct net_buf *buf)
 	net_buf_destroy(buf);
 }
 
-int mpipe_buffer_pool_configure(struct mpipe_buffer_pool *pool, struct mpipe_structure *config)
+int mpipe_buffer_pool_configure(struct mpipe_buffer_pool *pool,
+				const struct mpipe_structure *config)
 {
 	__ASSERT_NO_MSG(pool != NULL);
 

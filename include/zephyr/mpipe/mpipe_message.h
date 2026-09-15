@@ -147,7 +147,7 @@ struct mpipe_message {
  * @retval -ENOMSG The bus validator dropped the message, which the pipeline
  *                 does to every end-of-stream but the last
  */
-int mpipe_message_post(struct mpipe_message *message);
+int mpipe_message_post(const struct mpipe_message *message);
 
 /** @} */
 

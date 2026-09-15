@@ -91,7 +91,7 @@ struct mpipe_buffer_pool {
 	struct net_buf_pool *nb_pool;
 
 	/** Configure the pool with the given caps structure */
-	int (*configure)(struct mpipe_buffer_pool *pool, struct mpipe_structure *config);
+	int (*configure)(struct mpipe_buffer_pool *pool, const struct mpipe_structure *config);
 	/**
 	 * Apply a negotiated pool config. The implementation validates @p cfg
 	 * against what the pool can provide, writes the accepted values into
@@ -148,7 +148,7 @@ struct mpipe_buffer_meta {
  *
  * @return Pointer to the buffer's @ref mpipe_buffer_meta.
  */
-static inline struct mpipe_buffer_meta *mpipe_buffer_get_meta(struct net_buf *buf)
+static inline struct mpipe_buffer_meta *mpipe_buffer_get_meta(const struct net_buf *buf)
 {
 	return (struct mpipe_buffer_meta *)net_buf_user_data(buf);
 }
@@ -170,7 +170,8 @@ void mpipe_buffer_destroy(struct net_buf *buf);
  *
  * @return 0 on success, negative errno on failure
  */
-int mpipe_buffer_pool_configure(struct mpipe_buffer_pool *pool, struct mpipe_structure *config);
+int mpipe_buffer_pool_configure(struct mpipe_buffer_pool *pool,
+				const struct mpipe_structure *config);
 
 /**
  * @brief State what a buffer pool requires of its own accord

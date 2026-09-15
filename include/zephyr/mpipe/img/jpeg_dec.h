@@ -137,7 +137,7 @@ typedef struct jpeg_file_tag {
 	/** Total input size (bytes). */
 	int32_t iSize;
 	/** Pointer to input data in RAM. */
-	uint8_t *pData;
+	const uint8_t *pData;
 	/** Optional handle for non-RAM backends (unused in Zephyr). */
 	void *fHandle;
 } JPEGFILE;
@@ -320,7 +320,8 @@ typedef struct jpeg_image_tag {
  * @retval 1 on success.
  * @retval 0 on failure.
  */
-int JPEG_openRAM(JPEGIMAGE *pJPEG, uint8_t *pData, int iDataSize, JPEG_DRAW_CALLBACK *pfnDraw);
+int JPEG_openRAM(JPEGIMAGE *pJPEG, const uint8_t *pData, int iDataSize,
+		 JPEG_DRAW_CALLBACK *pfnDraw);
 
 /**
  * @brief Set the output framebuffer pointer.
