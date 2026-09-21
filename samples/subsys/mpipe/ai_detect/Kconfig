@@ -1,0 +1,78 @@
+# Copyright 2026 NXP
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Live detection pipeline sample"
+
+menu "Live detection pipeline configuration"
+
+config VIDEO_SOURCE_CROP_LEFT
+	int "Crop area left value"
+	default 0
+
+config VIDEO_SOURCE_CROP_TOP
+	int "Crop area top value"
+	default 0
+
+config VIDEO_SOURCE_CROP_WIDTH
+	int "Crop area width value"
+	default 0
+	help
+	  If set to 0, the crop is not applied.
+
+config VIDEO_SOURCE_CROP_HEIGHT
+	int "Crop area height value"
+	default 0
+	help
+	  If set to 0, the crop is not applied.
+
+config VIDEO_FRAME_HEIGHT
+	int "Height of the video frame"
+	default 0
+	help
+	  If set to 0, the default height is used.
+
+config VIDEO_FRAME_WIDTH
+	int "Width of the video frame"
+	default 0
+	help
+	  If set to 0, the default width is used.
+
+config VIDEO_PIXEL_FORMAT
+	string "Pixel format of the video frame"
+	help
+	  If not set, the default pixel format is used.
+
+config VIDEO_CTRL_HFLIP
+	int "Mirror the video frame horizontally"
+	range 0 1
+	default 0
+
+config VIDEO_CTRL_VFLIP
+	int "Mirror the video frame vertically"
+	range 0 1
+	default 0
+
+config VIDEO_ROTATION_ANGLE
+	int "Rotate the video frame by a specified angle"
+	range 0 270
+	default 0
+	help
+	  Specify one of {0, 90, 180, 270} degrees.
+
+config PROP_NUM_BUFS
+	int "Number of buffers the source provides before stopping"
+	default 0
+	help
+	  If not set or set to 0, the source will run forever.
+
+config SAMPLE_AI_ARENA_SIZE
+	int "Tensor arena size in bytes"
+	default 140000
+	help
+	  Working memory handed to the inference backend. 137 KiB fits the
+	  stock person detection model; size it for your model.
+
+endmenu
+
+source "Kconfig.zephyr"

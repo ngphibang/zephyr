@@ -1,0 +1,22 @@
+sample:
+  name: Live detection sample
+
+tests:
+  sample.mpipe.ai_detect.fake:
+    tags:
+    - mpipe
+    - video
+    - samples
+    platform_allow:
+    - native_sim/native/64
+    integration_platforms:
+    - native_sim/native/64
+    extra_args:
+    - platform:native_sim/native/64:SNIPPET="video-sw-generator"
+    extra_configs:
+    - CONFIG_TEST=y
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+      - "end of stream"
