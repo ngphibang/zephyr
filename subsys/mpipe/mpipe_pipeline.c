@@ -15,6 +15,7 @@
 #include <zephyr/zbus/zbus.h>
 
 #include <zephyr/mpipe/mpipe_bin.h>
+#include <zephyr/mpipe/mpipe_buffer.h>
 #include <zephyr/mpipe/mpipe_clock.h>
 #include <zephyr/mpipe/mpipe_dispatch.h>
 #include <zephyr/mpipe/mpipe_element.h>
@@ -331,6 +332,12 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 			continue;
 		}
 		count++;
+
+		/* Stamp buffers the source left unstamped with the running time */
+		if (mpipe_buffer_get_meta(buffer)->pts == 0U) {
+			mpipe_buffer_get_meta(buffer)->pts = mpipe_pipeline_running_time(pipeline);
+		}
+
 		if (mpipe_push_buffer(&src->src_pad, buffer) != 0) {
 			LOG_ERR("Failed to push buffer downstream");
 			/* Fatal to the stream: stop producing so one error, not a flood */

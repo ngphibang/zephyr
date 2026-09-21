@@ -56,7 +56,7 @@ static int mpipe_transform_client_chain_fn(struct mpipe_pad *pad, struct net_buf
 	}
 
 	out_meta->bytes_used = out_used;
-	out_meta->timestamp = k_uptime_get_32();
+	out_meta->pts = in_meta->pts;
 	(*out_buf)->len = out_used;
 
 	net_buf_unref(in_buf);

@@ -20,7 +20,7 @@
  *
  * Data travels as Zephyr @c net_buf buffers. mpipe adds an
  * @ref mpipe_buffer_meta in the buffer's user data - the pool it came from, how
- * many bytes are valid, a timestamp, and the driver-owned buffer it wraps where
+ * many bytes are valid, a presentation timestamp, and the driver-owned buffer it wraps where
  * there is one. That last field is what makes the path zero-copy: a frame a
  * camera wrote reaches the display without being moved.
  *
@@ -130,8 +130,13 @@ struct mpipe_buffer_meta {
 	 * TODO: Drop it for len once net_buf is 32-bit.
 	 */
 	uint32_t bytes_used;
-	/** Timestamp in milliseconds. */
-	uint32_t timestamp;
+	/**
+	 * Presentation timestamp: pipeline running time in microseconds at
+	 * which the content was captured or produced. Sources stamp it (the
+	 * pipeline stamps any buffer still carrying 0 when it leaves the
+	 * source) and transforms propagate it. 0 means unset.
+	 */
+	uint64_t pts;
 	/** Pointer to the real driver-owned buffer. */
 	void *driver_buf;
 	/** Opaque pointer for plugin-specific usage. */

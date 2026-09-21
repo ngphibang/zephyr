@@ -42,7 +42,7 @@ static int mpipe_vid_buffer_pool_client_start(struct mpipe_buffer_pool *pool)
 		m->pool = pool;
 		m->driver_buf = vbuf;
 		m->bytes_used = vbuf->bytesused;
-		m->timestamp = vbuf->timestamp;
+		m->pts = 0;
 		nb->len = m->bytes_used;
 
 		k_fifo_put(&zbpc->fifo, nb);
@@ -92,7 +92,7 @@ static int mpipe_vid_buffer_pool_client_release_buffer(struct mpipe_buffer_pool 
 	vbuf = m ? (struct video_buffer *)m->driver_buf : NULL;
 	if (vbuf != NULL) {
 		m->bytes_used = vbuf->bytesused;
-		m->timestamp = vbuf->timestamp;
+		m->pts = 0;
 		buf->len = m->bytes_used;
 	}
 
