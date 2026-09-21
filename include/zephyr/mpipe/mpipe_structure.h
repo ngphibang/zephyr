@@ -72,6 +72,10 @@ enum mpipe_media_type {
 	MPIPE_MEDIA_AUDIO_PCM,
 	/** Video, including raw, bayer and compressed formats */
 	MPIPE_MEDIA_VIDEO,
+	/** Tensor: multi-dimensional typed arrays for neural network I/O */
+	MPIPE_MEDIA_TENSOR,
+	/** Decoded neural network results: classifications, detections */
+	MPIPE_MEDIA_AI_RESULTS,
 	/** One past the last media type; not itself a usable media type */
 	MPIPE_MEDIA_END,
 };
@@ -136,6 +140,21 @@ enum mpipe_caps_field {
 	 * reciprocal of the frame rate.
 	 */
 	MPIPE_CAPS_FRAME_INTERVAL,
+	/**
+	 * Element data type of a tensor, as an mpipe_ai_tensor_type value,
+	 * MPIPE_TYPE_UINT. Distinct from MPIPE_CAPS_BITWIDTH: a bit width cannot
+	 * distinguish signed from unsigned 8-bit, and that distinction decides
+	 * how quantized neural network data is interpreted. A tensor capability
+	 * describing an image reuses MPIPE_CAPS_IMAGE_WIDTH, MPIPE_CAPS_IMAGE_HEIGHT
+	 * and MPIPE_CAPS_NUM_OF_CHANNEL for its geometry.
+	 */
+	MPIPE_CAPS_TENSOR_TYPE,
+	/**
+	 * Kind of results an AI results stream carries, as an
+	 * mpipe_ai_results_type value, MPIPE_TYPE_UINT. The payload of one buffer
+	 * is one struct mpipe_ai_results.
+	 */
+	MPIPE_CAPS_RESULTS_TYPE,
 	/**
 	 * One past the last field identifier. Bounds the range of valid
 	 * identifiers, and terminates the field list of
