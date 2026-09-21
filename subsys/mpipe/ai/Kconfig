@@ -62,7 +62,39 @@ config MPIPE_AI_BACKEND_FAKE
 	  Deterministic pseudo-inference with no runtime dependency, for
 	  framework bring-up and continuous integration.
 
+config MPIPE_AI_BACKEND_TFLM
+	bool "TensorFlow Lite Micro backend"
+	depends on TENSORFLOW_LITE_MICRO
+	depends on CPP
+	help
+	  Run inference through TensorFlow Lite Micro. Requires the optional
+	  tflite-micro module and C++17 (CONFIG_CPP, CONFIG_STD_CPP17 in the
+	  application). On Cortex-M enable
+	  CONFIG_TENSORFLOW_LITE_MICRO_CMSIS_NN_KERNELS for optimized
+	  kernels; with CONFIG_ETHOS_U the backend also registers the
+	  Ethos-U custom operator for Vela-compiled models.
+
 endchoice
+
+config MPIPE_AI_TFLM_MAX_OPS
+	int "Operator capacity of the TFLM op resolver"
+	range 1 64
+	default 16
+	depends on MPIPE_AI_BACKEND_TFLM
+	help
+	  Number of operator registrations the op resolver can hold. The
+	  backend registers the operators of the common quantized vision
+	  models; extend it together with the registration list.
+
+config MPIPE_AI_TFLM_MAX_INSTANCES
+	int "Concurrent TFLM interpreter instances"
+	range 1 4
+	default 1
+	depends on MPIPE_AI_BACKEND_TFLM
+	help
+	  Number of inference elements that can hold a loaded model at the
+	  same time. Each instance reserves static storage for an interpreter
+	  and an op resolver.
 
 config MPIPE_AI_INFER_POOL_NUM
 	int "Number of output buffers of the inference element"

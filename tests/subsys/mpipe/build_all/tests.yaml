@@ -101,3 +101,23 @@ tests:
       - CONFIG_MPIPE_AI_CONVERT=y
       - CONFIG_MPIPE_AI_INFER=y
       - CONFIG_MPIPE_AI_DECODE=y
+
+  mpipe.ai.tflm.build:
+    tags:
+      - subsys
+      - mpipe
+    modules:
+      - tflite-micro
+    build_only: true
+    platform_allow:
+      - qemu_x86_64
+      - mimxrt1170_evk/mimxrt1176/cm7
+    extra_args:
+      - CONFIG_CPP=y
+      - CONFIG_STD_CPP17=y
+      - CONFIG_TENSORFLOW_LITE_MICRO=y
+      - CONFIG_MPIPE_AI=y
+      - CONFIG_MPIPE_AI_CONVERT=y
+      - CONFIG_MPIPE_AI_INFER=y
+      - CONFIG_MPIPE_AI_DECODE=y
+      - CONFIG_MPIPE_AI_BACKEND_TFLM=y
