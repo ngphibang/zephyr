@@ -88,3 +88,16 @@ tests:
       - CONFIG_AUDIO_DMIC=y
       - CONFIG_AUDIO_CODEC=y
       - CONFIG_MPIPE_AUD=y
+
+  mpipe.ai.build:
+    tags:
+      - subsys
+      - mpipe
+    build_only: true
+    platform_allow:
+      - native_sim/native/64
+    extra_args:
+      - CONFIG_MPIPE_AI=y
+      - CONFIG_MPIPE_AI_CONVERT=y
+      - CONFIG_MPIPE_AI_INFER=y
+      - CONFIG_MPIPE_AI_DECODE=y

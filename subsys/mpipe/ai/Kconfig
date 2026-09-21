@@ -1,0 +1,100 @@
+#
+# Copyright 2026 NXP
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+config MPIPE_AI
+	bool "AI/ML plugin support"
+	help
+	  Enable the AI/ML plugin: elements that convert media buffers to
+	  tensors, run neural network inference through a pluggable backend
+	  and decode the resulting tensors into application-level results.
+
+if MPIPE_AI
+
+config MPIPE_AI_MAX_IO_TENSORS
+	int "Maximum input/output tensors of a model"
+	range 1 16
+	default 4
+	help
+	  Size of the per-direction tensor descriptor set. Four covers the
+	  common detection post-processing convention (boxes, classes,
+	  scores, count).
+
+config MPIPE_AI_CONVERT
+	bool "Video frame to tensor converter element"
+	help
+	  Element converting a video frame into a model input tensor in one
+	  pass: nearest-neighbor scaling, color conversion and quantization.
+
+if MPIPE_AI_CONVERT
+
+config MPIPE_AI_CONVERT_POOL_NUM
+	int "Number of tensor buffers of the converter"
+	range 1 8
+	default 2
+
+config MPIPE_AI_CONVERT_MAX_TENSOR_SIZE
+	int "Maximum output tensor size of the converter (in bytes)"
+	default 16384
+	help
+	  Upper bound of one converted tensor; sizes the static buffer pool.
+	  9216 covers a 96x96 single-channel model input.
+
+endif # MPIPE_AI_CONVERT
+
+config MPIPE_AI_INFER
+	bool "Neural network inference element"
+	help
+	  Element running a model on every input tensor buffer through the
+	  selected backend.
+
+if MPIPE_AI_INFER
+
+choice MPIPE_AI_BACKEND
+	prompt "Inference backend"
+	default MPIPE_AI_BACKEND_FAKE
+
+config MPIPE_AI_BACKEND_FAKE
+	bool "Fake backend"
+	help
+	  Deterministic pseudo-inference with no runtime dependency, for
+	  framework bring-up and continuous integration.
+
+endchoice
+
+config MPIPE_AI_INFER_POOL_NUM
+	int "Number of output buffers of the inference element"
+	range 1 8
+	default 2
+
+config MPIPE_AI_INFER_MAX_OUT_SIZE
+	int "Maximum total output size of a model (in bytes)"
+	default 512
+	help
+	  Upper bound of the flat buffer holding every output tensor of one
+	  inference; sizes the static buffer pool. Classification outputs
+	  are tiny; detection outputs need a few kilobytes.
+
+endif # MPIPE_AI_INFER
+
+config MPIPE_AI_DECODE
+	bool "Tensor decode element"
+	help
+	  Transform element turning output tensors into a results stream:
+	  ranked class scores or score-filtered bounding boxes, one
+	  results structure per buffer, typically consumed by an app_sink.
+
+config MPIPE_AI_DECODE_POOL_NUM
+	int "Number of results buffers of the decode element"
+	range 1 8
+	default 2
+	depends on MPIPE_AI_DECODE
+
+config MPIPE_AI_RESULTS_MAX
+	int "Maximum entries in a result set"
+	range 1 32
+	default 8
+
+endif # MPIPE_AI
