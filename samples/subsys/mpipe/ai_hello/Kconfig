@@ -1,0 +1,22 @@
+# Copyright 2026 NXP
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "AI hello pipeline sample"
+
+menu "AI hello pipeline configuration"
+
+config SAMPLE_AI_ARENA_SIZE
+	int "Tensor arena size in bytes"
+	default 140000
+	help
+	  Working memory handed to the inference backend. 137 KiB fits the
+	  stock person detection model; size it for your model.
+
+config SAMPLE_AI_PUSH_COUNT
+	int "Times each test image is pushed"
+	default 3
+
+endmenu
+
+source "Kconfig.zephyr"

@@ -1,0 +1,52 @@
+sample:
+  name: AI hello sample
+
+tests:
+  sample.mpipe.ai_hello.fake:
+    tags:
+    - mpipe
+    - samples
+    platform_allow:
+    - native_sim/native/64
+    integration_platforms:
+    - native_sim/native/64
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+      - "End of stream"
+  sample.mpipe.ai_hello.tflm:
+    tags:
+    - mpipe
+    - samples
+    - tensorflow
+    modules:
+    - tflite-micro
+    platform_allow:
+    - qemu_x86_64
+    integration_platforms:
+    - qemu_x86_64
+    extra_args:
+    - EXTRA_CONF_FILE=overlay-tflm.conf
+    timeout: 600
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+      - "End of stream"
+  sample.mpipe.ai_hello.ethosu:
+    tags:
+    - mpipe
+    - samples
+    - tensorflow
+    - NPU
+    modules:
+    - tflite-micro
+    build_only: true
+    filter: dt_compat_enabled("arm,ethos-u")
+    platform_allow:
+    - mps3/corstone300/fvp
+    integration_platforms:
+    - mps3/corstone300/fvp
+    extra_args:
+    - EXTRA_CONF_FILE="overlay-tflm.conf;overlay-ethosu.conf"
