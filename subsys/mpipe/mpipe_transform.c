@@ -259,8 +259,13 @@ static int mpipe_transform_query(struct mpipe_pad *pad, struct mpipe_dispatch *q
 			}
 		}
 
-		/* Configure/start the output buffer pool */
+		/* Configure and start the output buffer pool */
 		if (self->mode == MPIPE_MODE_NORMAL) {
+			if (self->out_pool == NULL) {
+				LOG_ERR("Element %u: no output pool", self->element.object.id);
+				return -EINVAL;
+			}
+
 			ret = mpipe_buffer_pool_configure(self->out_pool, &self->src_pad.caps);
 			if (ret != 0 && ret != -ENOSYS) {
 				LOG_ERR("Failed to configure output transform buffer pool");
@@ -268,7 +273,7 @@ static int mpipe_transform_query(struct mpipe_pad *pad, struct mpipe_dispatch *q
 			}
 
 			ret = mpipe_buffer_pool_start(self->out_pool);
-			if (ret != 0 && ret != -ENOSYS) {
+			if (ret != 0) {
 				LOG_ERR("Failed to start output transform buffer pool");
 				return ret;
 			}

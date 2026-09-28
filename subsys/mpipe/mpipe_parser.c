@@ -162,7 +162,7 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 			}
 
 			ret = mpipe_buffer_pool_start(parser->out_pool);
-			if (ret != 0 && ret != -ENOSYS) {
+			if (ret != 0) {
 				LOG_ERR("Failed to start output parser buffer pool");
 				return ret;
 			}

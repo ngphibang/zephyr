@@ -82,12 +82,8 @@ int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool)
 		return 0;
 	}
 
-	if (pool->start == NULL) {
-		pool->started = true;
-		return -ENOSYS;
-	}
-
-	ret = pool->start(pool);
+	/* A pool with nothing to start is simply started */
+	ret = (pool->start != NULL) ? pool->start(pool) : 0;
 	if (ret == 0) {
 		pool->started = true;
 	}
@@ -98,28 +94,21 @@ int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool)
 int mpipe_buffer_pool_stop(struct mpipe_buffer_pool *pool)
 {
 	int ret;
-	bool was_started;
 
 	__ASSERT_NO_MSG(pool != NULL);
 
-	was_started = pool->started;
+	/* A failed stop leaves the pool as it was, started and configured */
+	if (pool->started && pool->stop != NULL) {
+		ret = pool->stop(pool);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+
 	pool->started = false;
 	pool->config = pool->req_config;
 
-	if (!was_started) {
-		return 0;
-	}
-
-	if (pool->stop == NULL) {
-		return -ENOSYS;
-	}
-
-	ret = pool->stop(pool);
-	if (ret != 0) {
-		pool->started = true;
-	}
-
-	return ret;
+	return 0;
 }
 
 void mpipe_buffer_pool_init(struct mpipe_buffer_pool *pool)

@@ -221,13 +221,13 @@ int mpipe_buffer_pool_set_config(struct mpipe_buffer_pool *pool,
 /**
  * @brief Start a buffer pool
  *
- * A pool already started is left alone.
+ * A pool already started is left alone, and one with no start hook is simply
+ * marked started.
  *
  * @param pool Pointer to the buffer pool to start
  *
  * @retval 0 Success.
- * @retval -ENOSYS The pool has no start hook; it is marked started anyway
- * @return Any negative errno the hook returns
+ * @return Any negative errno the hook returns, the pool then stays stopped
  */
 int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool);
 
@@ -242,8 +242,8 @@ int mpipe_buffer_pool_start(struct mpipe_buffer_pool *pool);
  * @param pool Pointer to the buffer pool to stop
  *
  * @retval 0 Success.
- * @retval -ENOSYS The pool was started and has no stop hook
- * @return Any negative errno the hook returns
+ * @return Any negative errno the hook returns, the pool then stays started and
+ *         keeps its config
  */
 int mpipe_buffer_pool_stop(struct mpipe_buffer_pool *pool);
 

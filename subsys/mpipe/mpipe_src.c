@@ -194,7 +194,11 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 			return neg_ret;
 		}
 
-		/* Config buffer pool */
+		/* A source without a pool cannot stream; the pipeline thread reports it */
+		if (src->pool == NULL) {
+			break;
+		}
+
 		pool_ret = mpipe_buffer_pool_configure(src->pool, &src->src_pad.caps);
 		if (pool_ret != 0 && pool_ret != -ENOSYS) {
 			struct mpipe_message msg = {
@@ -209,9 +213,8 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 			return pool_ret;
 		}
 
-		/* Start buffer pool */
 		pool_ret = mpipe_buffer_pool_start(src->pool);
-		if (pool_ret != 0 && pool_ret != -ENOSYS) {
+		if (pool_ret != 0) {
 			struct mpipe_message msg = {
 				.origin = self,
 				.type = MPIPE_MESSAGE_ERROR,
@@ -226,14 +229,16 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 
 		break;
 	case MPIPE_STATE_CHANGE_PAUSED_TO_READY:
-		/* Stop the pool started on READY -> PAUSED; -ENOSYS means no stop hook */
-		pool_ret = mpipe_buffer_pool_stop(src->pool);
-		if (pool_ret != 0 && pool_ret != -ENOSYS) {
-			LOG_ERR("Failed to stop source buffer pool");
-			return pool_ret;
-		}
-
 		mpipe_element_reset_pad_caps(self);
+
+		/* Stop the pool started on READY -> PAUSED */
+		if (src->pool != NULL) {
+			pool_ret = mpipe_buffer_pool_stop(src->pool);
+			if (pool_ret != 0) {
+				LOG_ERR("Failed to stop source buffer pool");
+				return pool_ret;
+			}
+		}
 
 		break;
 	default:

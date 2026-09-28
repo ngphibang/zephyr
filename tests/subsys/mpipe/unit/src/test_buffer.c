@@ -47,8 +47,8 @@ static void buffer_before(void *f)
 
 ZTEST_SUITE(mpipe_buffer_api, NULL, buffer_suite_setup, buffer_before, NULL, NULL);
 
-/* A pool with no hook has nothing to do, which is a state and not an error */
-ZTEST_F(mpipe_buffer_api, test_a_pool_without_hooks_reports_enosys)
+/* A pool with no hook has nothing to configure, and nothing to do to start or stop */
+ZTEST_F(mpipe_buffer_api, test_a_pool_without_hooks)
 {
 	struct mpipe_structure config;
 
@@ -56,10 +56,10 @@ ZTEST_F(mpipe_buffer_api, test_a_pool_without_hooks_reports_enosys)
 
 	zassert_equal(mpipe_buffer_pool_configure(&fixture->pool, &config), -ENOSYS,
 		      "configure without a hook did not report -ENOSYS");
-	zassert_equal(mpipe_buffer_pool_start(&fixture->pool), -ENOSYS,
-		      "start without a hook did not report -ENOSYS");
-	zassert_equal(mpipe_buffer_pool_stop(&fixture->pool), -ENOSYS,
-		      "stop without a hook did not report -ENOSYS");
+	zassert_ok(mpipe_buffer_pool_start(&fixture->pool), "start without a hook failed");
+	zassert_true(fixture->pool.started, "start without a hook did not mark the pool started");
+	zassert_ok(mpipe_buffer_pool_stop(&fixture->pool), "stop without a hook failed");
+	zassert_false(fixture->pool.started, "stop without a hook left the pool started");
 }
 
 /* The requirement is the floor a run starts from, so init seeds both configs */
