@@ -20,8 +20,10 @@
  *
  * An @ref mpipe_value is what a field of an @ref mpipe_structure holds: a
  * boolean, a signed or unsigned integer, or a `{min, max, step}` range of one
- * of those. A range is how a device says it accepts a span rather than one
- * setting - every width from 16 to 1280 in steps of 2 - and fixation later
+ * of those. A range holds the values `min + n * step` up to `max`, as a
+ * stepwise frame size does in the video API; `min` and `max` need not be
+ * multiples of the step. It is how a device says it accepts a span rather than
+ * one setting - every width from 16 to 1280 in steps of 2 - and fixation later
  * picks a single value out of it.
  *
  * It is a tagged union with no pointer in any arm, so it is the same size on
@@ -266,6 +268,11 @@ uint32_t mpipe_value_get_uint_range_step(const struct mpipe_value *range);
 
 /**
  * @brief Intersect two values, put the result into caller-provided storage
+ *
+ * Two ranges intersect in the values they both hold: the result runs from the
+ * first common value to the last, with the least common multiple of the two
+ * steps between them. A single value intersects a range when the range holds
+ * it.
  *
  * @param val1 Pointer to the first value.
  * @param val2 Pointer to the second value.

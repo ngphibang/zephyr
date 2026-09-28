@@ -13,13 +13,6 @@
 
 LOG_MODULE_REGISTER(mpipe_value, CONFIG_MPIPE_LOG_LEVEL);
 
-#define MPIPE_VALUE_RANGES_OVERLAP(ref_val, cmp_val, vtype)                                        \
-	!((ref_val)->range.min.vtype > (cmp_val)->range.max.vtype ||                               \
-	  (cmp_val)->range.min.vtype > (ref_val)->range.max.vtype)
-
-#define MPIPE_SINGLE_VALUE_IN_RANGE(ref_val, cmp_val, vtype)                                       \
-	(IN_RANGE((cmp_val)->vtype, (ref_val)->range.min.vtype, (ref_val)->range.max.vtype))
-
 #define MPIPE_VALUE_PRIMITIVE_MASK                                                                 \
 	(BIT(MPIPE_TYPE_BOOLEAN) | BIT(MPIPE_TYPE_INT) | BIT(MPIPE_TYPE_UINT))
 
@@ -180,44 +173,107 @@ static bool mpipe_value_primitive_equal(const struct mpipe_value *val1,
 	}
 }
 
+/* A range holds min + n * step up to max; a step of 0 counts as 1 */
+static bool mpipe_value_grid_holds(int64_t min, int64_t max, int64_t step, int64_t v)
+{
+	step = MAX(step, 1);
+
+	return v >= min && v <= max && ((v - min) % step) == 0;
+}
+
+/*
+ * Intersect two ranges as sets of points: the first value on both grids up to
+ * the last one, with the least common multiple of the steps between them.
+ */
+static int mpipe_value_intersect_grids(int64_t min1, int64_t max1, int64_t step1, int64_t min2,
+				       int64_t max2, int64_t step2, int64_t *min, int64_t *max,
+				       int64_t *step)
+{
+	int64_t lo = MAX(min1, min2);
+	int64_t hi = MIN(max1, max2);
+	uint64_t lcm;
+	int64_t v;
+	bool found = false;
+
+	step1 = MAX(step1, 1);
+	step2 = MAX(step2, 1);
+
+	if (lo > hi) {
+		return -ENOENT;
+	}
+
+	/* Walk the first grid from lo; after step2 points every residue has been tried */
+	v = min1 + DIV_ROUND_UP(lo - min1, step1) * step1;
+	for (int64_t i = 0; i < step2 && v <= hi; i++, v += step1) {
+		if (((v - min2) % step2) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		return -ENOENT;
+	}
+
+	lcm = sys_lcm_u((uint32_t)step1, (uint32_t)step2);
+	*min = v;
+	*max = (lcm > (uint64_t)(hi - v)) ? v : v + (int64_t)(((uint64_t)(hi - v) / lcm) * lcm);
+	*step = (lcm > INT32_MAX) ? INT32_MAX : (int64_t)lcm;
+
+	return 0;
+}
+
 static int mpipe_value_intersect_range(const struct mpipe_value *ref_val,
 				       const struct mpipe_value *compare_val,
 				       struct mpipe_value *out)
 {
+	int64_t min;
+	int64_t max;
+	int64_t step;
+	int ret;
+
 	if (ref_val->type == MPIPE_TYPE_INT_RANGE && compare_val->type == MPIPE_TYPE_INT_RANGE) {
-		if (!MPIPE_VALUE_RANGES_OVERLAP(ref_val, compare_val, v_int)) {
-			return -ENOENT;
+		ret = mpipe_value_intersect_grids(
+			ref_val->range.min.v_int, ref_val->range.max.v_int,
+			ref_val->range.step.v_int, compare_val->range.min.v_int,
+			compare_val->range.max.v_int, compare_val->range.step.v_int, &min, &max,
+			&step);
+		if (ret != 0) {
+			return ret;
 		}
 
 		out->type = MPIPE_TYPE_INT_RANGE;
-		out->range.min.v_int = MAX(ref_val->range.min.v_int, compare_val->range.min.v_int);
-		out->range.max.v_int = MIN(ref_val->range.max.v_int, compare_val->range.max.v_int);
-		out->range.step.v_int =
-			(int32_t)sys_gcd(ref_val->range.step.v_int, compare_val->range.step.v_int);
+		out->range.min.v_int = (int32_t)min;
+		out->range.max.v_int = (int32_t)max;
+		out->range.step.v_int = (int32_t)step;
 
 		return 0;
 	}
 
 	if (ref_val->type == MPIPE_TYPE_UINT_RANGE && compare_val->type == MPIPE_TYPE_UINT_RANGE) {
-		if (!MPIPE_VALUE_RANGES_OVERLAP(ref_val, compare_val, v_uint)) {
-			return -ENOENT;
+		ret = mpipe_value_intersect_grids(
+			ref_val->range.min.v_uint, ref_val->range.max.v_uint,
+			ref_val->range.step.v_uint, compare_val->range.min.v_uint,
+			compare_val->range.max.v_uint, compare_val->range.step.v_uint, &min, &max,
+			&step);
+		if (ret != 0) {
+			return ret;
 		}
 
 		out->type = MPIPE_TYPE_UINT_RANGE;
-		out->range.min.v_uint =
-			MAX(ref_val->range.min.v_uint, compare_val->range.min.v_uint);
-		out->range.max.v_uint =
-			MIN(ref_val->range.max.v_uint, compare_val->range.max.v_uint);
-		out->range.step.v_uint =
-			sys_gcd(ref_val->range.step.v_uint, compare_val->range.step.v_uint);
+		out->range.min.v_uint = (uint32_t)min;
+		out->range.max.v_uint = (uint32_t)max;
+		out->range.step.v_uint = (uint32_t)step;
 
 		return 0;
 	}
 
 	if ((ref_val->type == MPIPE_TYPE_INT_RANGE && compare_val->type == MPIPE_TYPE_INT &&
-	     MPIPE_SINGLE_VALUE_IN_RANGE(ref_val, compare_val, v_int)) ||
+	     mpipe_value_grid_holds(ref_val->range.min.v_int, ref_val->range.max.v_int,
+				    ref_val->range.step.v_int, compare_val->v_int)) ||
 	    (ref_val->type == MPIPE_TYPE_UINT_RANGE && compare_val->type == MPIPE_TYPE_UINT &&
-	     MPIPE_SINGLE_VALUE_IN_RANGE(ref_val, compare_val, v_uint))) {
+	     mpipe_value_grid_holds(ref_val->range.min.v_uint, ref_val->range.max.v_uint,
+				    ref_val->range.step.v_uint, compare_val->v_uint))) {
 		*out = *compare_val;
 		return 0;
 	}

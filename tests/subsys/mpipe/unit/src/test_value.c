@@ -117,6 +117,37 @@ ZTEST(mpipe_value_api, test_intersect)
 	zassert_equal(mpipe_value_get_int(&result), 16000, "result != 16000");
 }
 
+/* A range holds min + n * step, so two ranges intersect on their common points */
+ZTEST(mpipe_value_api, test_range_grids)
+{
+	struct mpipe_value a;
+	struct mpipe_value b;
+	struct mpipe_value v;
+	struct mpipe_value result;
+
+	/* Odd numbers and even numbers have nothing in common */
+	zassert_ok(mpipe_value_set(&a, MPIPE_TYPE_INT_RANGE, 1, 99, 2));
+	zassert_ok(mpipe_value_set(&b, MPIPE_TYPE_INT_RANGE, 2, 100, 2));
+	zassert_equal(mpipe_value_intersect(&a, &b, &result), -ENOENT,
+		      "disjoint grids intersected");
+
+	/* Multiples of 4 from 0 and of 6 from 6 meet on the multiples of 12 */
+	zassert_ok(mpipe_value_set(&a, MPIPE_TYPE_UINT_RANGE, 0U, 100U, 4U));
+	zassert_ok(mpipe_value_set(&b, MPIPE_TYPE_UINT_RANGE, 6U, 100U, 6U));
+	zassert_ok(mpipe_value_intersect(&a, &b, &result), "grids with common points failed");
+	zassert_equal(mpipe_value_get_uint_range_min(&result), 12U, "min != 12");
+	zassert_equal(mpipe_value_get_uint_range_max(&result), 96U, "max != 96");
+	zassert_equal(mpipe_value_get_uint_range_step(&result), 12U, "step != 12");
+
+	/* A value inside the bounds but off the grid is not in the range */
+	zassert_ok(mpipe_value_set(&a, MPIPE_TYPE_INT_RANGE, 8000, 48000, 8000));
+	zassert_ok(mpipe_value_set(&v, MPIPE_TYPE_INT, 12000));
+	zassert_equal(mpipe_value_intersect(&a, &v, &result), -ENOENT, "12000 is on the grid");
+	zassert_ok(mpipe_value_set(&v, MPIPE_TYPE_INT, 16000));
+	zassert_ok(mpipe_value_intersect(&a, &v, &result), "16000 is not on the grid");
+	zassert_equal(mpipe_value_get_int(&result), 16000, "result != 16000");
+}
+
 ZTEST(mpipe_value_api, test_copy_and_is_primitive)
 {
 	struct mpipe_value original;
