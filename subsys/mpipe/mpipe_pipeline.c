@@ -99,7 +99,9 @@ static uint32_t mpipe_pipeline_count_sinks(struct mpipe_bin *bin)
 
 	SYS_DLIST_FOR_EACH_CONTAINER(&bin->children, obj, node) {
 		element = (struct mpipe_element *)obj;
-		if (sys_dlist_is_empty(&element->src_pads)) {
+		/* A nested bin has no pads of its own */
+		if ((obj->flags & MPIPE_OBJECT_FLAG_BIN) == 0 &&
+		    sys_dlist_is_empty(&element->src_pads)) {
 			count++;
 		}
 	}
@@ -115,6 +117,11 @@ static void mpipe_pipeline_set_flushing(struct mpipe_bin *bin, bool flush)
 
 	SYS_DLIST_FOR_EACH_CONTAINER(&bin->children, obj, node) {
 		element = (struct mpipe_element *)obj;
+
+		if ((obj->flags & MPIPE_OBJECT_FLAG_BIN) != 0) {
+			mpipe_pipeline_set_flushing((struct mpipe_bin *)element, flush);
+			continue;
+		}
 
 		SYS_DLIST_FOR_EACH_CONTAINER(&element->sink_pads, pad_obj, node) {
 			atomic_set(&((struct mpipe_pad *)pad_obj)->flushing, flush ? 1 : 0);
@@ -241,16 +248,27 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	/* Find the 1st source element */
+	/* The first element with no sink pad is the source; a nested bin has no pads at all */
 	SYS_DLIST_FOR_EACH_CONTAINER(&bin->children, obj, node) {
 		element = (struct mpipe_element *)obj;
-		if (sys_dlist_is_empty(&element->sink_pads)) {
+		if ((obj->flags & MPIPE_OBJECT_FLAG_BIN) == 0 &&
+		    sys_dlist_is_empty(&element->sink_pads)) {
 			src = (struct mpipe_src *)element;
 			break;
 		}
 	}
 
 	if (src == NULL || src->pool == NULL || src->pool->acquire_buffer == NULL) {
+		struct mpipe_message msg = {
+			.origin = &bin->element,
+			.type = MPIPE_MESSAGE_ERROR,
+			.domain = MPIPE_ERROR_FLOW,
+			.code = -ENOENT,
+		};
+
+		/* The application waits for EOS or an error: say why neither will come */
+		LOG_ERR("Pipeline %u: no source with a buffer pool", bin->element.object.id);
+		(void)mpipe_message_post(&msg);
 		return;
 	}
 
@@ -287,7 +305,6 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 		}
 		count++;
 		if (mpipe_push_buffer(&src->src_pad, buffer) != 0) {
-			LOG_ERR("Failed to push buffer downstream");
 			/* Fatal to the stream: stop producing so one error, not a flood */
 			count = 0;
 			mpipe_thread_pause(&pipeline->thread);
@@ -326,8 +343,12 @@ static int mpipe_pipeline_change_state(struct mpipe_element *element,
 
 	/* Join after the children have drained, which frees a thread blocked in a full queue */
 	if (transition == MPIPE_STATE_CHANGE_PAUSED_TO_READY) {
-		mpipe_thread_join(&pipeline->thread, K_FOREVER);
-		/* Reset EOS counter for a clean re-run. */
+		ret = mpipe_thread_join(&pipeline->thread, K_FOREVER);
+		if (ret != 0) {
+			LOG_ERR("Pipeline %u: failed to join the streaming thread (%d)",
+				element->object.id, ret);
+		}
+
 		atomic_set(&pipeline->eos_count, 0);
 	}
 
@@ -340,8 +361,9 @@ static int mpipe_pipeline_change_state(struct mpipe_element *element,
 		/* Create the thread but do not start it (K_FOREVER) */
 		if (mpipe_thread_create(&pipeline->thread, mpipe_pipeline_thread_func, element,
 					NULL, NULL, pipeline->thread.priority, K_FOREVER) == NULL) {
-			LOG_ERR("Failed to create a new pipeline thread");
-			return -EAGAIN;
+			LOG_ERR("Pipeline %u: no free stack for the streaming thread",
+				element->object.id);
+			return -ENOSPC;
 		}
 
 		/* Arm the EOS folding before the thread can produce one */
