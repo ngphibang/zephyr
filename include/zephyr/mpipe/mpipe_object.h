@@ -28,7 +28,10 @@
  * configured without the caller knowing its concrete type - a file path, a
  * device, a queue depth - and they are reached through
  * @ref mpipe_object_set_properties and @ref mpipe_object_get_properties rather
- * than by calling the callbacks directly.
+ * than by calling the callbacks directly. An integer value is passed in the
+ * value slot itself, wrapped in @ref MPIPE_PROP_INT; any other value, a string,
+ * a structure or a device, is passed as a pointer. A getter always writes
+ * through the pointer it is given. Each property says which it takes.
  *
  * A property is not a capability. A property configures one element and
  * nothing else has to agree on it; a capability describes the data crossing a
@@ -55,6 +58,17 @@
 
 /** Sentinel value to mark the end of property lists */
 #define MPIPE_PROP_LIST_END UINT32_MAX
+
+/**
+ * @brief Pass an integer property value.
+ *
+ * The integer travels in the value slot itself, so a caller writes
+ * `MPIPE_PROP_INT(10)` rather than the address of a variable, and a setter
+ * reads it back with `(uintptr_t)val`.
+ *
+ * @param x Integer value, no wider than a pointer.
+ */
+#define MPIPE_PROP_INT(x) ((const void *)(uintptr_t)(x))
 
 /**
  * @brief Base object structure

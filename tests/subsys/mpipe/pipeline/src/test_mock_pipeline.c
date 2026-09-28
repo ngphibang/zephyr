@@ -53,8 +53,8 @@ static void pipeline_before(void *f)
 
 	/* Set number of buffers to produce before EOS */
 	zassert_ok(mpipe_object_set_properties((struct mpipe_object *)&fix->fake_src,
-					       MPIPE_PROP_SRC_NUM_BUFS, TEST_BUFS_NUM,
-					       MPIPE_PROP_LIST_END),
+					       MPIPE_PROP_SRC_NUM_BUFS,
+					       MPIPE_PROP_INT(TEST_BUFS_NUM), MPIPE_PROP_LIST_END),
 		   "Failed to set fake_src MPIPE_PROP_SRC_NUM_BUFS");
 }
 

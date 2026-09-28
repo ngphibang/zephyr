@@ -31,7 +31,10 @@
  * Enumeration of properties that can be configured for a tee element
  */
 enum mpipe_prop_base_tee {
-	/** Number of source pads */
+	/**
+	 * Number of source pads, from 2 to @kconfig{CONFIG_MPIPE_BASE_TEE_MAX_SRC_PADS_NUM};
+	 * it only grows
+	 */
 	MPIPE_PROP_BASE_TEE_SRC_PADS_NUM,
 };
 

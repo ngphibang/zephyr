@@ -256,13 +256,9 @@ static int mpipe_tee_set_property(struct mpipe_object *obj, uint32_t id, const v
 {
 	struct mpipe_tee *tee = (struct mpipe_tee *)obj;
 
-	if (val == NULL) {
-		return -EINVAL;
-	}
-
 	switch (id) {
 	case MPIPE_PROP_BASE_TEE_SRC_PADS_NUM: {
-		uint8_t requested = *(const uint8_t *)val;
+		uintptr_t requested = (uintptr_t)val;
 		int ret;
 
 		if (!IN_RANGE(requested, DEFAULT_SRC_PADS_NUM,

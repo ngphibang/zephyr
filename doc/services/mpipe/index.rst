@@ -76,12 +76,14 @@ Each element type has its own init function taking that type and an id:
 
 Ids only have to be unique within the pipeline. Elements are configured through
 properties, which is how an element is set up without the caller knowing its
-concrete type:
+concrete type. An integer value is passed with ``MPIPE_PROP_INT``; a string, a
+structure or a device is passed as a pointer:
 
 .. code-block:: c
 
    ret = mpipe_object_set_properties((struct mpipe_object *)&source,
                                      MY_SRC_PROP_PATH, "/SD:/in.bin",
+                                     MPIPE_PROP_SRC_NUM_BUFS, MPIPE_PROP_INT(100),
                                      MPIPE_PROP_LIST_END);
 
 They are then added to the pipeline, in any order, and linked in stream order:

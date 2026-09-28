@@ -45,28 +45,24 @@ static int mpipe_queue_set_property(struct mpipe_object *obj, uint32_t id, const
 {
 	struct mpipe_queue *queue = (struct mpipe_queue *)obj;
 
-	if (val == NULL) {
-		return -EINVAL;
-	}
-
 	switch (id) {
 	case MPIPE_PROP_BASE_QUEUE_SIZE: {
-		uint8_t size = *(const uint8_t *)val;
+		uintptr_t size = (uintptr_t)val;
 
 		if (!IN_RANGE(size, 1, CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE)) {
-			LOG_ERR("Element %u: queue size %u is out of range [1 %u]", obj->id, size,
-				CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE);
+			LOG_ERR("Element %u: queue size %u is out of range [1 %u]", obj->id,
+				(unsigned int)size, CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE);
 			return -EINVAL;
 		}
 
-		queue->size = size;
+		queue->size = (uint8_t)size;
 		return 0;
 	}
 	case MPIPE_PROP_BASE_QUEUE_THREAD_PRIORITY:
-		queue->thread.priority = *(const int *)val;
+		queue->thread.priority = (int)(intptr_t)val;
 		return 0;
 	case MPIPE_PROP_BASE_QUEUE_LEAK: {
-		enum mpipe_base_queue_leak leak = *(const enum mpipe_base_queue_leak *)val;
+		enum mpipe_base_queue_leak leak = (enum mpipe_base_queue_leak)(uintptr_t)val;
 
 		if (leak != MPIPE_BASE_QUEUE_LEAK_NONE && leak != MPIPE_BASE_QUEUE_LEAK_OLDEST &&
 		    leak != MPIPE_BASE_QUEUE_LEAK_NEWEST) {

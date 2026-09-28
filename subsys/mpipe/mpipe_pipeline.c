@@ -29,7 +29,7 @@ static int mpipe_pipeline_set_property(struct mpipe_object *obj, uint32_t key, c
 
 	switch (key) {
 	case MPIPE_PROP_PIPELINE_THREAD_PRIORITY:
-		pipeline->thread.priority = *(const int *)val;
+		pipeline->thread.priority = (int)(intptr_t)val;
 		return 0;
 	default:
 		LOG_ERR("Element %u: unknown property %u", obj->id, key);

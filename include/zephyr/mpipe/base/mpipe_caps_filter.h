@@ -30,7 +30,11 @@
  * @brief Caps filter property identifiers
  */
 enum {
-	/** Caps ID property */
+	/**
+	 * The capability the link is constrained to, a const struct
+	 * mpipe_structure pointer, copied. Read back as a pointer to the
+	 * element's copy.
+	 */
 	MPIPE_PROP_BASE_CAPS_FILTER_CAPS = MPIPE_PROP_TRANSFORM_LAST,
 };
 

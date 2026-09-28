@@ -35,7 +35,10 @@
  * @brief Queue property identifiers
  */
 enum {
-	/** Number of buffers the queue can hold */
+	/**
+	 * Number of buffers the queue can hold, from 1 to
+	 * @kconfig{CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE}
+	 */
 	MPIPE_PROP_BASE_QUEUE_SIZE = MPIPE_PROP_TRANSFORM_LAST,
 	/** Scheduling priority of the queue's thread */
 	MPIPE_PROP_BASE_QUEUE_THREAD_PRIORITY,

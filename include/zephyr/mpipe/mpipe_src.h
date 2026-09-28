@@ -47,7 +47,7 @@
  * Enumeration of properties that can be configured for base source
  */
 enum mpipe_prop_src {
-	/** Number of buffers that the source outputs before sending EOS */
+	/** Number of buffers the source outputs before sending EOS, 0 to run until stopped */
 	MPIPE_PROP_SRC_NUM_BUFS,
 	/** Last source property marker (for validation/iteration) */
 	MPIPE_PROP_SRC_LAST,

@@ -74,11 +74,9 @@ static struct mpipe_object *queue_object(struct mpipe_queue *queue)
  */
 static void queue_enter_paused(struct mpipe_queue *queue, uint8_t size, uint8_t leak)
 {
-	enum mpipe_base_queue_leak policy = leak;
-
 	zassert_ok(mpipe_object_set_properties(queue_object(queue), MPIPE_PROP_BASE_QUEUE_SIZE,
-					       &size, MPIPE_PROP_BASE_QUEUE_LEAK, &policy,
-					       MPIPE_PROP_LIST_END));
+					       MPIPE_PROP_INT(size), MPIPE_PROP_BASE_QUEUE_LEAK,
+					       MPIPE_PROP_INT(leak), MPIPE_PROP_LIST_END));
 	zassert_ok(queue_element(queue)->change_state(queue_element(queue),
 						      MPIPE_STATE_CHANGE_READY_TO_PAUSED));
 }
@@ -115,7 +113,7 @@ ZTEST_F(test_queue, test_size_property_bounds_the_msgq)
 	uint8_t read_back = 0;
 
 	zassert_equal(mpipe_object_set_properties(queue_object(queue), MPIPE_PROP_BASE_QUEUE_SIZE,
-						  &size, MPIPE_PROP_LIST_END),
+						  MPIPE_PROP_INT(size), MPIPE_PROP_LIST_END),
 		      -EINVAL, "an out-of-range size is refused");
 
 	queue_enter_paused(queue, 2, MPIPE_BASE_QUEUE_LEAK_NONE);
