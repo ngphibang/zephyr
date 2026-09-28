@@ -62,6 +62,10 @@ static inline int mpipe_parser_query_caps(struct mpipe_parser *self,
 		return ret;
 	}
 
+	if (other_pad->peer == NULL) {
+		return -ENOTCONN;
+	}
+
 	/* Query the peer using what the other side supports */
 	ret = mpipe_pad_enum_caps(other_pad, 0, NULL, &other_caps);
 	if (ret != 0) {
@@ -71,7 +75,7 @@ static inline int mpipe_parser_query_caps(struct mpipe_parser *self,
 	*query->caps = other_caps;
 
 	ret = mpipe_pad_query(other_pad->peer, query);
-	if (ret < 0) {
+	if (ret != 0) {
 		return ret;
 	}
 
@@ -140,15 +144,18 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 			.caps = &parser->src_pad.caps,
 		};
 
-		/* Query the downstream */
+		if (parser->src_pad.peer == NULL) {
+			return -ENOTCONN;
+		}
+
 		ret = mpipe_pad_query(parser->src_pad.peer, &peer_query);
-		if (ret < 0) {
+		if (ret != 0) {
 			return ret;
 		}
 
 		if (parser->decide_buffer_pool != NULL) {
 			ret = parser->decide_buffer_pool(parser, &peer_query);
-			if (ret < 0) {
+			if (ret != 0) {
 				return ret;
 			}
 		}

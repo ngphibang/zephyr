@@ -125,6 +125,10 @@ static int mpipe_transform_offer(struct mpipe_transform *self, struct mpipe_pad 
 {
 	int ret;
 
+	if (other_pad->peer == NULL) {
+		return -ENOTCONN;
+	}
+
 	/* Query the peer pad with the transformed caps */
 	*query->caps = *transformed;
 
@@ -249,9 +253,12 @@ static int mpipe_transform_query(struct mpipe_pad *pad, struct mpipe_dispatch *q
 			.caps = &self->src_pad.caps,
 		};
 
-		/* Query the downstream */
+		if (self->src_pad.peer == NULL) {
+			return -ENOTCONN;
+		}
+
 		ret = mpipe_pad_query(self->src_pad.peer, &peer_query);
-		if (ret < 0) {
+		if (ret != 0) {
 			return ret;
 		}
 
@@ -342,6 +349,9 @@ static int mpipe_transform_event(struct mpipe_pad *pad, struct mpipe_dispatch *e
 
 		other_pad = (pad->direction == MPIPE_PAD_SINK) ? &transform->src_pad
 							       : &transform->sink_pad;
+		if (other_pad->peer == NULL) {
+			return -ENOTCONN;
+		}
 
 		/* A caps event carries a fixed format; none means the source could not fixate */
 		if (event->caps == NULL || mpipe_structure_is_any(event->caps)) {

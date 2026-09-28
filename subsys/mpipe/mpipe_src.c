@@ -98,6 +98,10 @@ static int mpipe_src_negotiate(struct mpipe_src *src)
 	bool is_fixated;
 	int ret;
 
+	if (src->src_pad.peer == NULL) {
+		return -ENOTCONN;
+	}
+
 	/* Offer the capabilities one at a time and keep the first the peer accepts */
 	for (index = 0;; index++) {
 		ret = mpipe_pad_enum_caps(&src->src_pad, index, NULL, &candidate);

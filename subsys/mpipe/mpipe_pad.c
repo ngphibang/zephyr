@@ -199,6 +199,7 @@ int mpipe_pad_send_event_default(struct mpipe_pad *pad, struct mpipe_dispatch *e
 
 	__ASSERT_NO_MSG(pad != NULL);
 	__ASSERT_NO_MSG(event != NULL);
+	__ASSERT_NO_MSG(pad->object.container != NULL);
 
 	struct mpipe_element *element = (struct mpipe_element *)pad->object.container;
 	struct mpipe_object *obj;
