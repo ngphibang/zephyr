@@ -44,6 +44,7 @@ struct mpipe_transform_client {
 	 * @param in_sz Number of valid bytes in the input buffer
 	 * @param out_buf Address of the output buffer to fill
 	 * @param[out] out_sz Number of bytes written to the output buffer
+	 *
 	 * @return 0 on success, a negative errno on failure
 	 */
 	int (*chain_fn_rpc)(uint32_t in_buf, uint32_t in_sz, uint32_t out_buf, uint32_t *out_sz);
@@ -61,6 +62,7 @@ struct mpipe_transform_client {
  *
  * @param transform_client Pointer to the @ref mpipe_transform_client to
  *                         initialize.
+ *
  * @param id               Unique element identifier.
  *
  * @return 0 on success, negative errno otherwise.

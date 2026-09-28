@@ -21,7 +21,7 @@
  * A pipeline creates and destroys threads as it starts and stops, and a
  * @c k_thread stack cannot simply be freed and reallocated on a system with no
  * heap. This wrapper draws stacks from a fixed pool sized by
- * @c CONFIG_MPIPE_THREADS_NUM, so a stack is returned when its thread
+ * @kconfig{CONFIG_MPIPE_THREADS_NUM}, so a stack is returned when its thread
  * terminates and reused by the next one.
  *
  * Threads are created sleeping and started explicitly, which is what lets a
@@ -78,6 +78,7 @@ struct mpipe_thread {
  * @param p3 Third parameter to pass to the thread entry function
  * @param priority Priority of the thread
  * @param delay Delay before the thread starts, K_FOREVER to start it on resume
+ *
  * @return Thread id, or NULL when no stack is free in the pool
  */
 k_tid_t mpipe_thread_create(struct mpipe_thread *thread, k_thread_entry_t func, void *p1, void *p2,
@@ -91,6 +92,7 @@ k_tid_t mpipe_thread_create(struct mpipe_thread *thread, k_thread_entry_t func, 
  * when running.
  *
  * @param thread Pointer to a struct @ref mpipe_thread
+ *
  * @retval 0 Thread should proceed (running).
  * @retval -ECANCELED Thread must exit (join requested).
  */
