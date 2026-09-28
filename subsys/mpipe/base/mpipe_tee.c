@@ -90,15 +90,26 @@ static int mpipe_tee_sink_query_fn(struct mpipe_pad *pad, struct mpipe_dispatch 
 				(peer_query.pool != NULL) ? &peer_query.pool->config
 							  : &peer_query.pool_cfg;
 
-			/* Combine all downstream branch's pool config proposals */
+			/* The branches hold buffers at the same time, so their counts add up */
 			merged.size = MAX(merged.size, cfg->size);
-			merged.min_buffers = MAX(merged.min_buffers, cfg->min_buffers);
-			int align = sys_lcm(merged.align, cfg->align);
+			merged.min_buffers = MIN(UINT8_MAX, merged.min_buffers + cfg->min_buffers);
+			if (cfg->max_buffers != 0U) {
+				merged.max_buffers =
+					(merged.max_buffers == 0U)
+						? cfg->max_buffers
+						: MIN(merged.max_buffers, cfg->max_buffers);
+			}
 
-			if (align == 0 && cfg->align != 0) {
-				merged.align = cfg->align;
-			} else {
-				merged.align = align;
+			if (cfg->align != 0U) {
+				uint64_t align = (merged.align == 0U)
+							 ? cfg->align
+							 : sys_lcm(merged.align, cfg->align);
+
+				if (align > UINT16_MAX) {
+					return -EINVAL;
+				}
+
+				merged.align = (uint16_t)align;
 			}
 		}
 
@@ -245,9 +256,14 @@ static int mpipe_tee_set_property(struct mpipe_object *obj, uint32_t id, const v
 {
 	struct mpipe_tee *tee = (struct mpipe_tee *)obj;
 
+	if (val == NULL) {
+		return -EINVAL;
+	}
+
 	switch (id) {
 	case MPIPE_PROP_BASE_TEE_SRC_PADS_NUM: {
 		uint8_t requested = *(const uint8_t *)val;
+		int ret;
 
 		if (!IN_RANGE(requested, DEFAULT_SRC_PADS_NUM,
 			      CONFIG_MPIPE_BASE_TEE_MAX_SRC_PADS_NUM)) {
@@ -255,7 +271,10 @@ static int mpipe_tee_set_property(struct mpipe_object *obj, uint32_t id, const v
 		}
 
 		while (tee->src_pads_num < requested) {
-			mpipe_tee_add_src_pad(tee);
+			ret = mpipe_tee_add_src_pad(tee);
+			if (ret != 0) {
+				return ret;
+			}
 		}
 
 		return 0;
@@ -290,10 +309,12 @@ int mpipe_tee_init(struct mpipe_tee *tee, uint8_t id)
 	mpipe_pad_init(&tee->sink_pad, 0, MPIPE_PAD_SINK, MPIPE_PAD_ALWAYS);
 	mpipe_element_add_pad(self, &tee->sink_pad);
 
-	/* Initialize the default source pads */
 	tee->src_pads_num = 0;
 	while (tee->src_pads_num < DEFAULT_SRC_PADS_NUM) {
-		mpipe_tee_add_src_pad(tee);
+		ret = mpipe_tee_add_src_pad(tee);
+		if (ret != 0) {
+			return ret;
+		}
 	}
 
 	return 0;
