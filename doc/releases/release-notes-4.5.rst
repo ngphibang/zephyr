@@ -895,6 +895,9 @@ New APIs and options
 * Multimedia Pipeline
 
   * :kconfig:option:`CONFIG_MPIPE` (see :ref:`mpipe`)
+  * :kconfig:option:`CONFIG_MPIPE_BASE`
+  * :kconfig:option:`CONFIG_MPIPE_DUMP`
+  * :kconfig:option:`CONFIG_MPIPE_PLAYER`
 
 * Network
 
@@ -2562,6 +2565,7 @@ Libraries / Subsystems
     * The image management client now supports SHA-512 image digests. It can
       list and select images for testing or confirmation on targets built with
       :kconfig:option:`CONFIG_MCUBOOT_BOOTLOADER_USES_SHA512`.
+
 * Networking
 
   * CoAP
@@ -2608,6 +2612,12 @@ Libraries / Subsystems
     applications out of reusable elements - sources, transforms and sinks -
     linked together into a pipeline. It lets an application describe the media
     flow it wants instead of driving each audio, video or display device itself.
+
+  * The base plugin adds the media-agnostic elements: a caps filter, a tee, a
+    queue, and an application source and sink.
+
+  * A topology dump renders a pipeline as a Graphviz graph, and a player drives
+    a pipeline from a worker thread and the shell.
 
 * Precision timing
 
