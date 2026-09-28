@@ -360,3 +360,75 @@ ZTEST(mpipe_structure_api, test_append_out_of_slots)
 	zassert_ok(mpipe_structure_append_value(&s, CONFIG_MPIPE_STRUCTURE_MAX_FIELDS, &v),
 		   "append after freeing a slot failed");
 }
+
+/* The errors the API documents for a bad media type, a duplicate and a full structure */
+ZTEST(mpipe_structure_api, test_documented_errors)
+{
+	struct mpipe_structure s;
+
+	zassert_equal(mpipe_structure_init(&s, MPIPE_MEDIA_END), -EINVAL,
+		      "an invalid media type was accepted");
+
+	zassert_equal(mpipe_structure_init_fields(&s, MPIPE_MEDIA_AUDIO_PCM, MPIPE_CAPS_SAMPLE_RATE,
+						  MPIPE_TYPE_INT, 48000, MPIPE_CAPS_SAMPLE_RATE,
+						  MPIPE_TYPE_INT, 44100, MPIPE_CAPS_END),
+		      -EEXIST, "a field listed twice was accepted");
+
+	zassert_equal(mpipe_structure_init_fields(&s, MPIPE_MEDIA_AUDIO_PCM, 256U, MPIPE_TYPE_INT,
+						  1, MPIPE_CAPS_END),
+		      -EINVAL, "a field identifier that does not fit a byte was accepted");
+
+	/* One more field than the structure holds */
+	zassert_ok(mpipe_structure_init(&s, MPIPE_MEDIA_VIDEO));
+	for (uint8_t id = 0; id < CONFIG_MPIPE_STRUCTURE_MAX_FIELDS; id++) {
+		struct mpipe_value v;
+
+		zassert_ok(mpipe_value_set(&v, MPIPE_TYPE_UINT, id));
+		zassert_ok(mpipe_structure_append_value(&s, id, &v), "field %u did not fit", id);
+	}
+	struct mpipe_value extra;
+
+	zassert_ok(mpipe_value_set(&extra, MPIPE_TYPE_UINT, 1U));
+	zassert_equal(mpipe_structure_append_value(&s, CONFIG_MPIPE_STRUCTURE_MAX_FIELDS, &extra),
+		      -ENOSPC, "a full structure accepted a field");
+}
+
+/* copy_field carries one field across and says when the source lacks it */
+ZTEST(mpipe_structure_api, test_copy_field)
+{
+	struct mpipe_structure src;
+	struct mpipe_structure dst;
+
+	zassert_ok(mpipe_structure_init_fields(&src, MPIPE_MEDIA_AUDIO_PCM, MPIPE_CAPS_SAMPLE_RATE,
+					       MPIPE_TYPE_INT, 48000, MPIPE_CAPS_END));
+	zassert_ok(mpipe_structure_init(&dst, MPIPE_MEDIA_AUDIO_PCM));
+
+	zassert_equal(mpipe_structure_copy_field(&src, &dst, MPIPE_CAPS_BIT_WIDTH), -ENOENT,
+		      "a field the source lacks was copied");
+	zassert_equal(dst.num_fields, 0, "the destination was touched");
+
+	zassert_ok(mpipe_structure_copy_field(&src, &dst, MPIPE_CAPS_SAMPLE_RATE));
+	zassert_equal(mpipe_value_get_int(mpipe_structure_get_value(&dst, MPIPE_CAPS_SAMPLE_RATE)),
+		      48000, "the copied value differs");
+	zassert_equal(mpipe_structure_copy_field(&src, &dst, MPIPE_CAPS_SAMPLE_RATE), -EEXIST,
+		      "a field was copied twice");
+}
+
+/* An intersection refuses to write into one of its inputs or across media types */
+ZTEST(mpipe_structure_api, test_intersect_refusals)
+{
+	struct mpipe_structure audio;
+	struct mpipe_structure video;
+	struct mpipe_structure out;
+
+	zassert_ok(mpipe_structure_init_fields(&audio, MPIPE_MEDIA_AUDIO_PCM,
+					       MPIPE_CAPS_SAMPLE_RATE, MPIPE_TYPE_INT, 48000,
+					       MPIPE_CAPS_END));
+	zassert_ok(mpipe_structure_init_fields(&video, MPIPE_MEDIA_VIDEO, MPIPE_CAPS_IMAGE_WIDTH,
+					       MPIPE_TYPE_UINT, 640, MPIPE_CAPS_END));
+
+	zassert_equal(mpipe_structure_intersect(&audio, &audio, &audio), -EINVAL,
+		      "the output aliased an input");
+	zassert_equal(mpipe_structure_intersect(&audio, &video, &out), -EINVAL,
+		      "two media types intersected");
+}

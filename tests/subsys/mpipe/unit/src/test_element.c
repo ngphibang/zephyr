@@ -153,3 +153,34 @@ ZTEST_F(mpipe_element_api, test_sanity)
 	zassert_true(mpipe_element_link(&src, &sink, NULL) < 0,
 		     "Linking elements without pads shall fail");
 }
+
+/* Linking is refused where the pad capabilities cannot intersect */
+ZTEST_F(mpipe_element_api, test_link_refuses_incompatible_caps)
+{
+	mpipe_element_add_pad(&fixture->src, &fixture->src_pad);
+	mpipe_element_add_pad(&fixture->sink, &fixture->sink_pad);
+
+	zassert_ok(mpipe_structure_init_fields(&fixture->src_pad.caps, MPIPE_MEDIA_VIDEO,
+					       MPIPE_CAPS_IMAGE_WIDTH, MPIPE_TYPE_UINT, 640,
+					       MPIPE_CAPS_END));
+	zassert_ok(mpipe_structure_init_fields(&fixture->sink_pad.caps, MPIPE_MEDIA_AUDIO_PCM,
+					       MPIPE_CAPS_SAMPLE_RATE, MPIPE_TYPE_UINT, 48000,
+					       MPIPE_CAPS_END));
+
+	zassert_equal(mpipe_element_link(&fixture->src, &fixture->sink, NULL), -ENOTSUP,
+		      "a video pad was linked to an audio pad");
+	zassert_is_null(fixture->src_pad.peer, "the refused link set a peer");
+}
+
+/* An element without a state hook cannot change state, and a bin holds an element once */
+ZTEST_F(mpipe_element_api, test_set_state_without_hook_and_double_add)
+{
+	fixture->src.set_state = NULL;
+	zassert_equal(mpipe_element_set_state(&fixture->src, MPIPE_STATE_PAUSED), -ENOSYS,
+		      "an element with no set_state hook changed state");
+
+	zassert_ok(mpipe_pipeline_init(&fixture->pipeline, 7));
+	zassert_ok(mpipe_bin_add((struct mpipe_bin *)&fixture->pipeline, &fixture->sink, NULL));
+	zassert_equal(mpipe_bin_add((struct mpipe_bin *)&fixture->pipeline, &fixture->sink, NULL),
+		      -EBUSY, "an element was added to a bin twice");
+}
