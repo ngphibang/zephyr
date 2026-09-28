@@ -12,13 +12,21 @@ static int mpipe_caps_filter_set_property(struct mpipe_object *obj, uint32_t key
 {
 	struct mpipe_transform *transform = (struct mpipe_transform *)obj;
 	struct mpipe_caps_filter *filter = (struct mpipe_caps_filter *)obj;
+	int ret;
+
+	if (val == NULL) {
+		return -EINVAL;
+	}
 
 	switch (key) {
 	case MPIPE_PROP_BASE_CAPS_FILTER_CAPS:
 		filter->filter_caps = *(const struct mpipe_structure *)val;
-		mpipe_pad_set_caps(&transform->sink_pad, &filter->filter_caps);
-		mpipe_pad_set_caps(&transform->src_pad, &filter->filter_caps);
-		return 0;
+		ret = mpipe_pad_set_caps(&transform->sink_pad, &filter->filter_caps);
+		if (ret != 0) {
+			return ret;
+		}
+
+		return mpipe_pad_set_caps(&transform->src_pad, &filter->filter_caps);
 	default:
 		return -ENOTSUP;
 	}
@@ -27,6 +35,10 @@ static int mpipe_caps_filter_set_property(struct mpipe_object *obj, uint32_t key
 static int mpipe_caps_filter_get_property(struct mpipe_object *obj, uint32_t key, void *val)
 {
 	struct mpipe_caps_filter *filter = (struct mpipe_caps_filter *)obj;
+
+	if (val == NULL) {
+		return -EINVAL;
+	}
 
 	switch (key) {
 	case MPIPE_PROP_BASE_CAPS_FILTER_CAPS:
@@ -94,9 +106,11 @@ static int mpipe_caps_filter_change_state(struct mpipe_element *self,
 	ret = mpipe_transform_change_state(self, transition);
 
 	/* The base reset wiped the pads; the configured filter is not a negotiation result */
-	if (transition == MPIPE_STATE_CHANGE_PAUSED_TO_READY) {
-		mpipe_pad_set_caps(&transform->sink_pad, &filter->filter_caps);
-		mpipe_pad_set_caps(&transform->src_pad, &filter->filter_caps);
+	if (ret == 0 && transition == MPIPE_STATE_CHANGE_PAUSED_TO_READY) {
+		ret = mpipe_pad_set_caps(&transform->sink_pad, &filter->filter_caps);
+		if (ret == 0) {
+			ret = mpipe_pad_set_caps(&transform->src_pad, &filter->filter_caps);
+		}
 	}
 
 	return ret;

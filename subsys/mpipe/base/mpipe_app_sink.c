@@ -121,18 +121,26 @@ static int mpipe_app_sink_get_property(struct mpipe_object *obj, uint32_t key, v
 	}
 }
 
+/* Release anything the application never pulled */
+static void mpipe_app_sink_drain(struct mpipe_app_sink *app_sink)
+{
+	struct net_buf *buf;
+
+	while (k_msgq_get(&app_sink->msgq, &buf, K_NO_WAIT) == 0) {
+		net_buf_unref(buf);
+	}
+}
+
 static int mpipe_app_sink_change_state(struct mpipe_element *element,
 				       enum mpipe_state_change transition)
 {
 	struct mpipe_app_sink *app_sink = (struct mpipe_app_sink *)element;
-	struct net_buf *buf;
 
 	switch (transition) {
+	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
 	case MPIPE_STATE_CHANGE_PAUSED_TO_READY:
-		/* Release anything the application never pulled */
-		while (k_msgq_get(&app_sink->msgq, &buf, K_NO_WAIT) == 0) {
-			net_buf_unref(buf);
-		}
+		/* A buffer chained after the teardown drain must not open the next run */
+		mpipe_app_sink_drain(app_sink);
 		break;
 	default:
 		break;
