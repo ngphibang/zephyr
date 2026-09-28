@@ -23,33 +23,49 @@ static int mpipe_transform_client_chain_fn(struct mpipe_pad *pad, struct net_buf
 	struct mpipe_buffer_meta *out_meta;
 	uint32_t in_used;
 	uint32_t out_used;
+	int ret;
 
-	if (in_buf == NULL || out_buf == NULL || transform->out_pool == NULL ||
-	    transform->out_pool->acquire_buffer == NULL) {
+	__ASSERT_NO_MSG(in_buf != NULL);
+	__ASSERT_NO_MSG(out_buf != NULL);
+
+	/* The chain function owns in_buf on every path */
+	if (transform->out_pool == NULL || transform->out_pool->acquire_buffer == NULL) {
+		net_buf_unref(in_buf);
 		return -EINVAL;
 	}
 
 	in_meta = mpipe_buffer_get_meta(in_buf);
 	in_used = in_meta->bytes_used;
 
-	if (transform->out_pool->acquire_buffer(transform->out_pool, out_buf) != 0 ||
-	    *out_buf == NULL) {
-		LOG_ERR("Failed to acquire an output buffer");
-		return -ENOMEM;
+	ret = transform->out_pool->acquire_buffer(transform->out_pool, out_buf);
+	if (ret != 0 || *out_buf == NULL) {
+		LOG_ERR("Element %u: failed to acquire an output buffer (%d)",
+			transform->element.object.id, ret);
+		net_buf_unref(in_buf);
+		return (ret != 0) ? ret : -ENOMEM;
 	}
 
 	out_meta = mpipe_buffer_get_meta(*out_buf);
 	out_used = out_meta->bytes_used;
 
 	/* The RPC interface carries 32-bit addresses */
-	if (transform_client->chain_fn_rpc((uint32_t)(uintptr_t)in_buf->data, in_used,
-					   (uint32_t)(uintptr_t)(*out_buf)->data, &out_used) != 0) {
-		LOG_ERR("Failed to process buffer via RPC");
+	ret = transform_client->chain_fn_rpc((uint32_t)(uintptr_t)in_buf->data, in_used,
+					     (uint32_t)(uintptr_t)(*out_buf)->data, &out_used);
+	if (ret != 0) {
+		LOG_ERR("Element %u: remote processing failed (%d)", transform->element.object.id,
+			ret);
+	} else if (out_used > (*out_buf)->size) {
+		LOG_ERR("Element %u: remote wrote %u bytes into a %u byte buffer",
+			transform->element.object.id, out_used, (*out_buf)->size);
+		ret = -EOVERFLOW;
+	}
+
+	if (ret != 0) {
 		net_buf_unref(*out_buf);
 		*out_buf = NULL;
 		net_buf_unref(in_buf);
 
-		return -EIO;
+		return ret;
 	}
 
 	out_meta->bytes_used = out_used;
@@ -72,35 +88,29 @@ static int mpipe_transform_client_propose_buffer_pool(struct mpipe_transform *se
 static int mpipe_transform_client_decide_buffer_pool(struct mpipe_transform *self,
 						     struct mpipe_dispatch *query)
 {
-	struct mpipe_buffer_pool *query_pool = query->pool;
-	struct mpipe_buffer_pool_config *pool_config = &self->out_pool->config;
-	struct mpipe_buffer_pool_config *qpc = NULL;
+	struct mpipe_buffer_pool_config *pool_config;
+	const struct mpipe_buffer_pool_config *qpc;
 
-	if (query_pool == NULL) {
-		qpc = &query->pool_cfg;
-	} else {
-		qpc = &query_pool->config;
+	__ASSERT_NO_MSG(self->out_pool != NULL);
+
+	pool_config = &self->out_pool->config;
+	qpc = (query->pool != NULL) ? &query->pool->config : &query->pool_cfg;
+
+	/* Always use its own pool, just merge the downstream demands into its config */
+	if (qpc->min_buffers > pool_config->min_buffers) {
+		pool_config->min_buffers = qpc->min_buffers;
 	}
 
-	/* Always use its own pool, just negotiate the configs */
-	if (qpc != NULL) {
-		/* Decide min buffers */
-		if (qpc->min_buffers > pool_config->min_buffers) {
-			pool_config->min_buffers = qpc->min_buffers;
-		}
+	if (qpc->align != 0U) {
+		uint64_t align = (pool_config->align == 0U)
+					 ? qpc->align
+					 : sys_lcm(qpc->align, pool_config->align);
 
-		/* Decide alignment */
-		int align = sys_lcm(qpc->align, pool_config->align);
-
-		if (align == -1) {
+		if (align > UINT16_MAX) {
 			return -EINVAL;
-		} else if (align == 0 && qpc->align != 0) {
-			pool_config->align = qpc->align;
-		} else if (align != 0) {
-			pool_config->align = align;
-		} else {
-			/* align == 0 && qpc->align == 0: no change needed */
 		}
+
+		pool_config->align = (uint16_t)align;
 	}
 
 	return 0;
@@ -109,6 +119,8 @@ static int mpipe_transform_client_decide_buffer_pool(struct mpipe_transform *sel
 int mpipe_transform_client_init(struct mpipe_transform_client *transform_client, uint8_t id)
 {
 	__ASSERT_NO_MSG(transform_client != NULL);
+	__ASSERT_NO_MSG(transform_client->init_rpc != NULL);
+	__ASSERT_NO_MSG(transform_client->chain_fn_rpc != NULL);
 
 	struct mpipe_element *self = &transform_client->transform.element;
 	struct mpipe_transform *transform = &transform_client->transform;
