@@ -279,13 +279,15 @@ static int mpipe_transform_query(struct mpipe_pad *pad, struct mpipe_dispatch *q
 
 			ret = mpipe_buffer_pool_configure(self->out_pool, &self->src_pad.caps);
 			if (ret != 0 && ret != -ENOSYS) {
-				LOG_ERR("Failed to configure output transform buffer pool");
+				LOG_ERR("Element %u: failed to configure the output pool (%d)",
+					self->element.object.id, ret);
 				return ret;
 			}
 
 			ret = mpipe_buffer_pool_start(self->out_pool);
 			if (ret != 0) {
-				LOG_ERR("Failed to start output transform buffer pool");
+				LOG_ERR("Element %u: failed to start the output pool (%d)",
+					self->element.object.id, ret);
 				return ret;
 			}
 		}
@@ -339,10 +341,10 @@ static int mpipe_transform_event(struct mpipe_pad *pad, struct mpipe_dispatch *e
 
 	switch (event->type) {
 	case MPIPE_DISPATCH_EOS:
-		LOG_DBG("MPIPE_DISPATCH_EOS");
+		LOG_DBG("Element %u: EOS event", pad->object.container->id);
 		return mpipe_pad_send_event_default(pad, event);
 	case MPIPE_DISPATCH_CAPS:
-		LOG_DBG("MPIPE_DISPATCH_CAPS");
+		LOG_DBG("Element %u: caps event", pad->object.container->id);
 		struct mpipe_transform *transform = (struct mpipe_transform *)pad->object.container;
 		struct mpipe_pad *other_pad;
 		struct mpipe_structure incoming;

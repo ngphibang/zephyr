@@ -28,7 +28,7 @@ int mpipe_src_set_property(struct mpipe_object *obj, uint32_t key, const void *v
 		src->num_buffers = (uint32_t)(uintptr_t)val;
 		return 0;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 }
@@ -42,7 +42,7 @@ int mpipe_src_get_property(struct mpipe_object *obj, uint32_t key, void *val)
 		*(uint32_t *)val = src->num_buffers;
 		break;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 
@@ -190,7 +190,7 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 				.code = neg_ret,
 			};
 
-			LOG_ERR("Negotiation failed");
+			LOG_ERR("Element %u: negotiation failed (%d)", self->object.id, neg_ret);
 			(void)mpipe_message_post(&msg);
 			return neg_ret;
 		}
@@ -209,7 +209,8 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 				.code = pool_ret,
 			};
 
-			LOG_ERR("Failed to configure source buffer pool");
+			LOG_ERR("Element %u: failed to configure the buffer pool (%d)",
+				self->object.id, pool_ret);
 			(void)mpipe_message_post(&msg);
 			return pool_ret;
 		}
@@ -223,7 +224,8 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 				.code = pool_ret,
 			};
 
-			LOG_ERR("Failed to start source buffer pool");
+			LOG_ERR("Element %u: failed to start the buffer pool (%d)", self->object.id,
+				pool_ret);
 			(void)mpipe_message_post(&msg);
 			return pool_ret;
 		}
@@ -236,7 +238,8 @@ int mpipe_src_change_state(struct mpipe_element *self, enum mpipe_state_change t
 		if (src->pool != NULL) {
 			pool_ret = mpipe_buffer_pool_stop(src->pool);
 			if (pool_ret != 0) {
-				LOG_ERR("Failed to stop source buffer pool");
+				LOG_ERR("Element %u: failed to stop the buffer pool (%d)",
+					self->object.id, pool_ret);
 				return pool_ret;
 			}
 		}

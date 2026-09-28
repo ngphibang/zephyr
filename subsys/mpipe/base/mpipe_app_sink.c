@@ -95,7 +95,7 @@ static int mpipe_app_sink_set_property(struct mpipe_object *obj, uint32_t key, c
 		app_sink->cb = *(const struct mpipe_app_sink_cb *)val;
 		return 0;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 }
@@ -116,7 +116,7 @@ static int mpipe_app_sink_get_property(struct mpipe_object *obj, uint32_t key, v
 		*(struct mpipe_app_sink_cb *)val = app_sink->cb;
 		return 0;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 }

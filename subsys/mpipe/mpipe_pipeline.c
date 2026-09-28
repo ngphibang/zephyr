@@ -32,7 +32,7 @@ static int mpipe_pipeline_set_property(struct mpipe_object *obj, uint32_t key, c
 		pipeline->thread.priority = *(const int *)val;
 		return 0;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 }
@@ -46,7 +46,7 @@ static int mpipe_pipeline_get_property(struct mpipe_object *obj, uint32_t key, v
 		*(int *)val = pipeline->thread.priority;
 		return 0;
 	default:
-		LOG_ERR("Property %d is unknown", key);
+		LOG_ERR("Element %u: unknown property %u", obj->id, key);
 		return -ENOTSUP;
 	}
 }
@@ -157,7 +157,8 @@ int mpipe_push_buffer(struct mpipe_pad *src_pad, struct net_buf *buffer)
 				.code = -ENOTCONN,
 			};
 
-			LOG_ERR("src_pad has no peer");
+			LOG_ERR("Element %u: source pad has no peer",
+				cur_src_pad->object.container->id);
 			net_buf_unref(buffer);
 			(void)mpipe_message_post(&msg);
 			return -ENOTCONN;
@@ -230,7 +231,8 @@ static void mpipe_pipeline_send_eos(struct mpipe_src *src)
 			.code = ret,
 		};
 
-		LOG_ERR("Failed to send EOS event downstream (%d)", ret);
+		LOG_ERR("Element %u: failed to send EOS downstream (%d)", src->element.object.id,
+			ret);
 		(void)mpipe_message_post(&msg);
 	}
 }
@@ -295,7 +297,8 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 				};
 
 				/* Neither EOS nor a forced-stop flush (-EPIPE): a real error */
-				LOG_ERR("Source failed to acquire a buffer (%d)", acq_ret);
+				LOG_ERR("Element %u: failed to acquire a buffer (%d)",
+					src->element.object.id, acq_ret);
 				(void)mpipe_message_post(&msg);
 			}
 			count = 0;

@@ -164,13 +164,15 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 		if (parser->out_pool != NULL && !parser->out_pool->started) {
 			ret = mpipe_buffer_pool_configure(parser->out_pool, &parser->src_pad.caps);
 			if (ret != 0 && ret != -ENOSYS) {
-				LOG_ERR("Failed to configure output parser buffer pool");
+				LOG_ERR("Element %u: failed to configure the output pool (%d)",
+					parser->element.object.id, ret);
 				return ret;
 			}
 
 			ret = mpipe_buffer_pool_start(parser->out_pool);
 			if (ret != 0) {
-				LOG_ERR("Failed to start output parser buffer pool");
+				LOG_ERR("Element %u: failed to start the output pool (%d)",
+					parser->element.object.id, ret);
 				return ret;
 			}
 		}
