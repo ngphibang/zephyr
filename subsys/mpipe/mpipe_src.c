@@ -79,13 +79,10 @@ static int mpipe_src_offer_candidate(struct mpipe_src *src, const struct mpipe_s
 	};
 	int ret;
 
+	/* -ENODATA is the peer refusing this candidate; anything else is a real error */
 	ret = mpipe_pad_query(src->src_pad.peer, &caps_query);
 	if (ret != 0) {
-		return -ENODATA;
-	}
-
-	if (mpipe_structure_is_empty(&caps_storage)) {
-		return -ENODATA;
+		return ret;
 	}
 
 	/* Store negotiated (possibly unfixed) caps on the src pad */

@@ -19,6 +19,8 @@ LOG_MODULE_REGISTER(mpipe_pad, CONFIG_MPIPE_LOG_LEVEL);
 int mpipe_pad_enum_filter(const struct mpipe_structure *candidate,
 			  const struct mpipe_structure *filter, struct mpipe_structure *out)
 {
+	int ret;
+
 	__ASSERT_NO_MSG(candidate != NULL);
 	__ASSERT_NO_MSG(out != NULL);
 
@@ -27,8 +29,13 @@ int mpipe_pad_enum_filter(const struct mpipe_structure *candidate,
 		return 0;
 	}
 
-	/* This capability cannot satisfy the filter, but a later one might */
-	return (mpipe_structure_intersect(candidate, filter, out) != 0) ? -EAGAIN : 0;
+	/* Nothing in common means try the next index; a full structure is a real error */
+	ret = mpipe_structure_intersect(candidate, filter, out);
+	if (ret == -ENOSPC) {
+		return ret;
+	}
+
+	return (ret != 0) ? -EAGAIN : 0;
 }
 
 static int mpipe_pad_enum_caps_default(struct mpipe_pad *pad, uint32_t index,

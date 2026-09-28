@@ -100,8 +100,12 @@ static int mpipe_transform_narrow_to_candidate(struct mpipe_transform *self,
 
 	for (uint32_t index = 0;; index++) {
 		ret = mpipe_transform_enum_caps(self, this_pad->direction, answer, &index, &back);
-		if (ret != 0) {
+		if (ret == -ENOENT) {
 			return -ENODATA;
+		}
+
+		if (ret != 0) {
+			return ret;
 		}
 
 		/* Narrow by the candidate this attempt started from */
@@ -124,15 +128,15 @@ static int mpipe_transform_offer(struct mpipe_transform *self, struct mpipe_pad 
 	/* Query the peer pad with the transformed caps */
 	*query->caps = *transformed;
 
+	/* -ENODATA is the peer refusing this transformation; anything else is a real error */
 	ret = mpipe_pad_query(other_pad->peer, query);
-	if (ret < 0) {
+	if (ret == -ENODATA) {
 		LOG_DBG("element id = %u: peer refused the transformed caps",
 			self->element.object.id);
-		return -ENODATA;
 	}
 
-	if (mpipe_structure_is_empty(query->caps)) {
-		return -ENODATA;
+	if (ret != 0) {
+		return ret;
 	}
 
 	ret = mpipe_transform_narrow_to_candidate(self, this_pad, query->caps, candidate, out);
