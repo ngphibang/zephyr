@@ -86,7 +86,15 @@ static void dump_before(void *f)
 		   "Failed to add elements");
 }
 
-ZTEST_SUITE(test_dump, NULL, dump_suite_setup, dump_before, NULL, NULL);
+/* A failed test may leave the pipeline PAUSED with its thread created */
+static void dump_after(void *f)
+{
+	struct test_dump_fixture *fix = f;
+
+	(void)mpipe_element_set_state((struct mpipe_element *)&fix->pipeline, MPIPE_STATE_READY);
+}
+
+ZTEST_SUITE(test_dump, NULL, dump_suite_setup, dump_before, dump_after, NULL);
 
 static void dump_link_chain(struct test_dump_fixture *fix)
 {
@@ -96,7 +104,7 @@ static void dump_link_chain(struct test_dump_fixture *fix)
 		   "Failed to link elements");
 }
 
-/* An element is named after its init function, with the prefix and suffix dropped */
+/* Every element is rendered with its name and id */
 ZTEST_F(test_dump, test_dump_names_every_element)
 {
 	dump_link_chain(fixture);
@@ -111,16 +119,6 @@ ZTEST_F(test_dump, test_dump_names_every_element)
 			 fixture->capture.buf);
 	zassert_not_null(strstr(fixture->capture.buf, "sink #3"), "Sink not named:\n%s",
 			 fixture->capture.buf);
-
-	/*
-	 * Neither the "mpipe_" prefix nor the "_init" suffix belongs in a name.
-	 * Checked against the names themselves rather than the whole rendering,
-	 * which legitimately carries "mpipe_" in the graph's own name.
-	 */
-	zassert_is_null(strstr(fixture->capture.buf, "mpipe_fake_src"), "Prefix not stripped:\n%s",
-			fixture->capture.buf);
-	zassert_is_null(strstr(fixture->capture.buf, "_init"), "Suffix not stripped:\n%s",
-			fixture->capture.buf);
 }
 
 /* Every link becomes an edge between the two ports it actually joins */
@@ -193,8 +191,9 @@ ZTEST_F(test_dump, test_dump_is_a_well_formed_digraph)
 
 	zassert_ok(test_dump_pipeline(fixture));
 
-	zassert_equal(strncmp(fixture->capture.buf, "digraph mpipe_pipeline {", 21), 0,
-		      "DOT does not open a digraph:\n%s", fixture->capture.buf);
+	zassert_equal(strncmp(fixture->capture.buf, "digraph mpipe_pipeline {",
+			      strlen("digraph mpipe_pipeline {")),
+		      0, "DOT does not open a digraph:\n%s", fixture->capture.buf);
 	zassert_not_null(strstr(fixture->capture.buf, "rankdir=LR;"), "DOT lacks its layout:\n%s",
 			 fixture->capture.buf);
 

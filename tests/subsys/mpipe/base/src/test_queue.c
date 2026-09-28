@@ -21,6 +21,7 @@ NET_BUF_POOL_FIXED_DEFINE(test_pool, BUFS_NUM, BUF_SIZE, 0, NULL);
 struct test_queue_fixture {
 	struct mpipe_queue queue;
 	struct net_buf *bufs[BUFS_NUM];
+	bool paused;
 };
 
 static void *queue_suite_setup(void)
@@ -46,8 +47,13 @@ static void queue_before(void *f)
 static void queue_after(void *f)
 {
 	struct test_queue_fixture *fix = f;
+	struct mpipe_element *element = &fix->queue.transform.element;
 
-	/* Whatever a failed test left in flight goes back to the pool */
+	/* A failed test leaves its thread running and its buffers queued */
+	if (fix->paused) {
+		(void)element->change_state(element, MPIPE_STATE_CHANGE_PAUSED_TO_READY);
+	}
+
 	for (uint8_t i = 0; i < BUFS_NUM; i++) {
 		if (fix->bufs[i] != NULL && fix->bufs[i]->ref > 0) {
 			net_buf_unref(fix->bufs[i]);
@@ -79,12 +85,14 @@ static void queue_enter_paused(struct mpipe_queue *queue, uint8_t size, uint8_t 
 					       MPIPE_PROP_INT(leak), MPIPE_PROP_LIST_END));
 	zassert_ok(queue_element(queue)->change_state(queue_element(queue),
 						      MPIPE_STATE_CHANGE_READY_TO_PAUSED));
+	CONTAINER_OF(queue, struct test_queue_fixture, queue)->paused = true;
 }
 
 static void queue_leave_paused(struct mpipe_queue *queue)
 {
 	zassert_ok(queue_element(queue)->change_state(queue_element(queue),
 						      MPIPE_STATE_CHANGE_PAUSED_TO_READY));
+	CONTAINER_OF(queue, struct test_queue_fixture, queue)->paused = false;
 	zassert_equal(k_msgq_num_used_get(&queue->msgq), 0, "teardown left buffers queued");
 }
 
@@ -123,7 +131,14 @@ ZTEST_F(test_queue, test_size_property_bounds_the_msgq)
 	zassert_equal(read_back, 2);
 	zassert_equal(queue->msgq.max_msgs, 2 + 2, "size plus the two sentinel slots");
 
+	/* Holding the producer: the buffers fill the size, never the sentinel slots */
+	queue_process(queue, fixture->bufs[0]);
+	queue_process(queue, fixture->bufs[1]);
+	zassert_equal(k_msgq_num_used_get(&queue->msgq), 2);
+	zassert_equal(k_sem_count_get(&queue->free_slots), 0, "a third buffer would not wait");
+
 	queue_leave_paused(queue);
+	zassert_equal(fixture->bufs[0]->ref, 0, "teardown did not release the queued buffers");
 }
 
 ZTEST_F(test_queue, test_leak_oldest_keeps_the_freshest)

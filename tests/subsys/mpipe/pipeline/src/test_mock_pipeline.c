@@ -101,7 +101,7 @@ ZTEST_F(test_mock_pipeline, test_pipeline_fake_src_transform_sink)
 			   "run %d failed to start PLAYING", run);
 
 		/* Wait for EOS posted by the sink */
-		zassert_ok(zbus_sub_wait_msg(&test_pipeline_sub, &chan, &msg, K_FOREVER),
+		zassert_ok(zbus_sub_wait_msg(&test_pipeline_sub, &chan, &msg, K_SECONDS(2)),
 			   "run %d timed out waiting for a pipeline message", run);
 		zassert_equal(msg.type, MPIPE_MESSAGE_EOS, "run %d: expected EOS, got %d", run,
 			      msg.type);
