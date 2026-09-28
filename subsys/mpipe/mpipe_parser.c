@@ -138,7 +138,7 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 	switch (query->type) {
 	case MPIPE_DISPATCH_CAPS:
 		return mpipe_parser_query_caps(parser, pad->direction, query);
-	case MPIPE_DISPATCH_BUFFER_POOL:
+	case MPIPE_DISPATCH_BUFFER_POOL: {
 		struct mpipe_dispatch peer_query = {
 			.type = MPIPE_DISPATCH_BUFFER_POOL,
 			.caps = &parser->src_pad.caps,
@@ -181,6 +181,7 @@ static int mpipe_parser_query(struct mpipe_pad *pad, struct mpipe_dispatch *quer
 		}
 
 		return 0;
+	}
 	default:
 		return -ENOTSUP;
 	}

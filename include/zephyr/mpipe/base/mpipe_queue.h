@@ -73,6 +73,8 @@ struct mpipe_queue {
 	 * buffer can wait in several queues at once behind a tee.
 	 */
 	struct k_msgq msgq;
+	/** Free buffer slots when a full queue holds the producer; the sentinels never wait */
+	struct k_sem free_slots;
 	/**
 	 * Backing storage for the message queue, sized for the largest queue
 	 * plus the EOS and pause sentinels

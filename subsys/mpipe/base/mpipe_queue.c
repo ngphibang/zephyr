@@ -45,21 +45,27 @@ static int mpipe_queue_set_property(struct mpipe_object *obj, uint32_t id, const
 {
 	struct mpipe_queue *queue = (struct mpipe_queue *)obj;
 
+	if (val == NULL) {
+		return -EINVAL;
+	}
+
 	switch (id) {
-	case MPIPE_PROP_BASE_QUEUE_SIZE:
-		queue->size = *(const uint8_t *)val;
-		if (!IN_RANGE(queue->size, 1, CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE)) {
-			LOG_WRN("Requested size %u is out of range [1 %u]", queue->size,
+	case MPIPE_PROP_BASE_QUEUE_SIZE: {
+		uint8_t size = *(const uint8_t *)val;
+
+		if (!IN_RANGE(size, 1, CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE)) {
+			LOG_ERR("Element %u: queue size %u is out of range [1 %u]", obj->id, size,
 				CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE);
-			queue->size = CONFIG_MPIPE_BASE_QUEUE_MAX_SIZE;
 			return -EINVAL;
 		}
 
+		queue->size = size;
 		return 0;
+	}
 	case MPIPE_PROP_BASE_QUEUE_THREAD_PRIORITY:
 		queue->thread.priority = *(const int *)val;
 		return 0;
-	case MPIPE_PROP_BASE_QUEUE_LEAK:
+	case MPIPE_PROP_BASE_QUEUE_LEAK: {
 		enum mpipe_base_queue_leak leak = *(const enum mpipe_base_queue_leak *)val;
 
 		if (leak != MPIPE_BASE_QUEUE_LEAK_NONE && leak != MPIPE_BASE_QUEUE_LEAK_OLDEST &&
@@ -69,6 +75,7 @@ static int mpipe_queue_set_property(struct mpipe_object *obj, uint32_t id, const
 
 		queue->leak = leak;
 		return 0;
+	}
 	default:
 		return -ENOTSUP;
 	}
@@ -90,9 +97,13 @@ static int mpipe_queue_chain_fn(struct mpipe_pad *pad, struct net_buf *in_buf,
 	*out_buf = NULL;
 
 	if (queue->leak == MPIPE_BASE_QUEUE_LEAK_NONE) {
-		ret = k_msgq_put(&queue->msgq, &in_buf, K_FOREVER);
-		if (ret != 0) {
-			/* Only a purge fails a K_FOREVER put: drop the buffer, not the stream */
+		/* Wait for a buffer slot; the two extra msgq slots stay free for the sentinels */
+		k_sem_take(&queue->free_slots, K_FOREVER);
+
+		/* Released by the teardown drain: drop instead of refilling the queue */
+		if (atomic_get(&queue->flushing) != 0 ||
+		    k_msgq_put(&queue->msgq, &in_buf, K_NO_WAIT) != 0) {
+			k_sem_give(&queue->free_slots);
 			net_buf_unref(in_buf);
 		}
 
@@ -113,9 +124,9 @@ static int mpipe_queue_chain_fn(struct mpipe_pad *pad, struct net_buf *in_buf,
 			break;
 		}
 
-		/* Sentinels are never dropped: put one back and stop making room */
+		/* Sentinels are never dropped: put one back where it was and stop making room */
 		if (oldest == (void *)&eos_sentinel || oldest == (void *)&pause_sentinel) {
-			(void)k_msgq_put(&queue->msgq, &oldest, K_NO_WAIT);
+			(void)k_msgq_put_front(&queue->msgq, &oldest);
 			break;
 		}
 
@@ -136,7 +147,7 @@ static int mpipe_queue_sink_event_fn(struct mpipe_pad *pad, struct mpipe_dispatc
 	int ret;
 
 	switch (event->type) {
-	case MPIPE_DISPATCH_EOS:
+	case MPIPE_DISPATCH_EOS: {
 		void *eos_ptr = &eos_sentinel;
 
 		/* Drop EOS if flushing (teardown); nothing downstream needs it. */
@@ -144,13 +155,11 @@ static int mpipe_queue_sink_event_fn(struct mpipe_pad *pad, struct mpipe_dispatc
 			return 0;
 		}
 
-		ret = k_msgq_put(&queue->msgq, &eos_ptr, K_FOREVER);
-		if (ret != 0) {
-			/* Only a purge fails a K_FOREVER put; treat the EOS as consumed */
-			return 0;
-		}
+		/* Only a purge fails a K_FOREVER put, and nothing purges */
+		(void)k_msgq_put(&queue->msgq, &eos_ptr, K_FOREVER);
 
-		return ret;
+		return 0;
+	}
 	case MPIPE_DISPATCH_CAPS: {
 		struct mpipe_structure *caps = event->caps;
 		struct mpipe_pad *peer = queue->transform.src_pad.peer;
@@ -228,10 +237,24 @@ static void mpipe_queue_thread_func(void *p1, void *p2, void *p3)
 			continue;
 		}
 
-		mpipe_push_buffer(&queue->transform.src_pad, buffer);
+		k_sem_give(&queue->free_slots);
+		(void)mpipe_push_buffer(&queue->transform.src_pad, buffer);
 	}
 
 	LOG_DBG("Queue thread exiting");
+}
+
+/* Drop every queued buffer; each slot freed releases a producer waiting on it */
+static void mpipe_queue_drain(struct mpipe_queue *queue)
+{
+	struct net_buf *buffer;
+
+	while (k_msgq_get(&queue->msgq, &buffer, K_NO_WAIT) == 0) {
+		if (buffer != (void *)&eos_sentinel && buffer != (void *)&pause_sentinel) {
+			net_buf_unref(buffer);
+			k_sem_give(&queue->free_slots);
+		}
+	}
 }
 
 static int mpipe_queue_change_state(struct mpipe_element *element,
@@ -243,13 +266,16 @@ static int mpipe_queue_change_state(struct mpipe_element *element,
 	switch (transition) {
 	case MPIPE_STATE_CHANGE_READY_TO_PAUSED:
 		/* Apply the configured size; two extra slots hold the sentinels */
+		mpipe_queue_drain(queue);
 		k_msgq_init(&queue->msgq, queue->msgq_buffer, sizeof(void *), queue->size + 2);
+		k_sem_init(&queue->free_slots, queue->size, queue->size);
 
 		atomic_set(&queue->flushing, 0);
 		if (mpipe_thread_create(&queue->thread, mpipe_queue_thread_func, queue, NULL, NULL,
 					queue->thread.priority, K_FOREVER) == NULL) {
-			LOG_ERR("Failed to create a new queue thread");
-			return -EAGAIN;
+			LOG_ERR("Element %u: no free stack for the queue thread",
+				element->object.id);
+			return -ENOSPC;
 		}
 		break;
 	case MPIPE_STATE_CHANGE_PAUSED_TO_PLAYING:
@@ -259,20 +285,15 @@ static int mpipe_queue_change_state(struct mpipe_element *element,
 	case MPIPE_STATE_CHANGE_PLAYING_TO_PAUSED:
 		/* The pause sentinel unblocks k_msgq_get(); the thread then parks in wait() */
 		mpipe_thread_pause(&queue->thread);
-		k_msgq_put(&queue->msgq, &pause_ptr, K_NO_WAIT);
+		if (k_msgq_put(&queue->msgq, &pause_ptr, K_NO_WAIT) != 0) {
+			LOG_ERR("Element %u: no slot for the pause sentinel", element->object.id);
+		}
 		break;
 	case MPIPE_STATE_CHANGE_PAUSED_TO_READY:
-		struct net_buf *buffer;
-
 		/* Flush before joining: a producer the drain releases drops its buffer */
 		atomic_set(&queue->flushing, 1);
-		mpipe_thread_join(&queue->thread, K_FOREVER);
-
-		while (k_msgq_get(&queue->msgq, &buffer, K_NO_WAIT) == 0) {
-			if (buffer != (void *)&eos_sentinel && buffer != (void *)&pause_sentinel) {
-				net_buf_unref(buffer);
-			}
-		}
+		(void)mpipe_thread_join(&queue->thread, K_FOREVER);
+		mpipe_queue_drain(queue);
 		break;
 	default:
 		break;
@@ -308,6 +329,7 @@ int mpipe_queue_init(struct mpipe_queue *queue, uint8_t id)
 
 	/* Sized for the default; READY -> PAUSED applies the configured size */
 	k_msgq_init(&queue->msgq, queue->msgq_buffer, sizeof(void *), queue->size + 2);
+	k_sem_init(&queue->free_slots, queue->size, queue->size);
 
 	return 0;
 }
