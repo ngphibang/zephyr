@@ -23,9 +23,10 @@
 /*
  * cmsis_gcc.h and the SIMD intrinsics it provides are Arm Cortex-M specific.
  * native_sim builds run on the host and have no such toolchain header, so skip
- * the CMSIS include and the SIMD fast paths there.
+ * the CMSIS include and the SIMD fast paths there. Defining NO_SIMD keeps the
+ * portable paths on a Cortex-M too, as in the upstream decoder.
  */
-#ifndef CONFIG_BOARD_NATIVE_SIM
+#if !defined(CONFIG_BOARD_NATIVE_SIM) && !defined(NO_SIMD)
 #include "cmsis_gcc.h"
 
 #define HAS_SIMD
