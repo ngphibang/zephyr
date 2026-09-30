@@ -22,6 +22,28 @@
 
 LOG_MODULE_REGISTER(mpipe_img_jpeg_parser, CONFIG_MPIPE_LOG_LEVEL);
 
+/* Investigation aid, see mpipe_stage_stats.h */
+#define MPIPE_STAGE_STATS 1
+#if MPIPE_STAGE_STATS
+#include "../mpipe_stage_stats.h"
+static struct mpipe_stage_stats parse_stats;
+
+/* One sample per chain call: frames cut, their bytes and the time the call took */
+static void parse_stats_done(uint32_t t0, uint32_t frames, uint32_t bytes, uint32_t max_len)
+{
+	if (mpipe_stage_stats_add(&parse_stats, frames, bytes, max_len,
+				  mpipe_stage_stats_elapsed_us(t0))) {
+		LOG_INF("stats jpeg_parser: %u fr/s, avg %u max %u B, parse %u..%u us, %u ms total, "
+			"drops %u (%u ms)",
+			mpipe_stage_stats_per_s(&parse_stats, parse_stats.count),
+			(parse_stats.count != 0U) ? parse_stats.bytes / parse_stats.count : 0U,
+			parse_stats.bytes_max, parse_stats.us_min, parse_stats.us_max,
+			parse_stats.us_sum / 1000U, parse_stats.aux, parse_stats.elapsed_ms);
+		mpipe_stage_stats_reset(&parse_stats);
+	}
+}
+#endif
+
 /*
  * The parser only ever emits JPEG, so its source capability is known at build
  * time and lives in .rodata rather than being allocated at init.
@@ -293,6 +315,12 @@ static int mpipe_img_jpeg_parser_parse_accum_buf(struct mpipe_img_jpeg_parser *j
 	uint32_t frame_start = 0;
 	bool any_frame = false;
 	int ret;
+#if MPIPE_STAGE_STATS
+	uint32_t t0 = k_cycle_get_32();
+	uint32_t st_frames = 0;
+	uint32_t st_bytes = 0;
+	uint32_t st_max = 0;
+#endif
 
 	*out_buf = NULL;
 
@@ -338,6 +366,11 @@ static int mpipe_img_jpeg_parser_parse_accum_buf(struct mpipe_img_jpeg_parser *j
 			net_buf_frag_add(*out_buf, out);
 		}
 		any_frame = true;
+#if MPIPE_STAGE_STATS
+		st_frames++;
+		st_bytes += len;
+		st_max = MAX(st_max, len);
+#endif
 
 		scan = (uint32_t)(marker - data) + 2U;
 		frame_start = scan;
@@ -361,9 +394,15 @@ static int mpipe_img_jpeg_parser_parse_accum_buf(struct mpipe_img_jpeg_parser *j
 			LOG_WRN("Dropping a JPEG frame larger than %u bytes", cap);
 			set_bytes_used(in_buf, 0);
 			jpeg_parser->scan_offset = 0;
+#if MPIPE_STAGE_STATS
+			parse_stats.aux++;
+#endif
 		}
 
 		net_buf_unref(in_buf);
+#if MPIPE_STAGE_STATS
+		parse_stats_done(t0, 0, 0, 0);
+#endif
 
 		return 0;
 	}
@@ -384,6 +423,9 @@ static int mpipe_img_jpeg_parser_parse_accum_buf(struct mpipe_img_jpeg_parser *j
 	jpeg_parser->scan_offset = (in_used > 0U) ? in_used - 1U : 0U;
 
 	net_buf_unref(in_buf);
+#if MPIPE_STAGE_STATS
+	parse_stats_done(t0, st_frames, st_bytes, st_max);
+#endif
 
 	return 0;
 
