@@ -90,6 +90,7 @@ public class Options {
     // Connect to this host over TCP instead of serving the desktop client over adb
     private String remoteHost;
     private int remotePort = 5000;
+    private boolean mic;
 
     public Ln.Level getLogLevel() {
         return logLevel;
@@ -325,6 +326,10 @@ public class Options {
 
     public int getRemotePort() {
         return remotePort;
+    }
+
+    public boolean getMic() {
+        return mic;
     }
 
     public boolean getSendStreamMeta() {
@@ -576,6 +581,9 @@ public class Options {
                     break;
                 case "remote_port":
                     options.remotePort = Integer.parseInt(value);
+                    break;
+                case "mic":
+                    options.mic = Boolean.parseBoolean(value);
                     break;
                 case "raw_stream":
                     boolean rawStream = Boolean.parseBoolean(value);

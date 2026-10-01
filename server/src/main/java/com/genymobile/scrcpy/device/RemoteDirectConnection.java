@@ -24,8 +24,8 @@ import java.nio.charset.StandardCharsets;
  * A connection the server opens itself, to a host that accepts the streams on one TCP port.
  *
  * The host accepts the connections in the order they are opened here: video, then audio, then
- * control. Each stream is exposed as a file descriptor, so the streaming code writes to it as
- * it does to the desktop client's local sockets.
+ * control, then the microphone stream the host sends back. Each stream is exposed as a file
+ * descriptor, so the streaming code uses it as it does the desktop client's local sockets.
  */
 public final class RemoteDirectConnection implements Connection {
 
@@ -36,18 +36,22 @@ public final class RemoteDirectConnection implements Connection {
     private final Socket videoSocket;
     private final Socket audioSocket;
     private final Socket controlSocket;
+    private final Socket micSocket;
 
     private final ParcelFileDescriptor videoPfd;
     private final ParcelFileDescriptor audioPfd;
+    private final ParcelFileDescriptor micPfd;
     private final ControlChannel controlChannel;
 
-    private RemoteDirectConnection(Socket videoSocket, Socket audioSocket, Socket controlSocket) throws IOException {
+    private RemoteDirectConnection(Socket videoSocket, Socket audioSocket, Socket controlSocket, Socket micSocket) throws IOException {
         this.videoSocket = videoSocket;
         this.audioSocket = audioSocket;
         this.controlSocket = controlSocket;
+        this.micSocket = micSocket;
 
         videoPfd = videoSocket != null ? ParcelFileDescriptor.fromSocket(videoSocket) : null;
         audioPfd = audioSocket != null ? ParcelFileDescriptor.fromSocket(audioSocket) : null;
+        micPfd = micSocket != null ? ParcelFileDescriptor.fromSocket(micSocket) : null;
         controlChannel = controlSocket != null ? new ControlChannel(controlSocket.getInputStream(), controlSocket.getOutputStream()) : null;
     }
 
@@ -79,8 +83,8 @@ public final class RemoteDirectConnection implements Connection {
      * The host may come up after the server, so a refused or timed out connection is retried
      * every second rather than reported.
      */
-    public static RemoteDirectConnection open(String host, int port, boolean video, boolean audio, boolean control, boolean sendDummyByte)
-            throws IOException {
+    public static RemoteDirectConnection open(String host, int port, boolean video, boolean audio, boolean control, boolean mic,
+            boolean sendDummyByte) throws IOException {
         InetSocketAddress address = new InetSocketAddress(host, port);
 
         Ln.i("Connecting to " + address + "...");
@@ -88,6 +92,7 @@ public final class RemoteDirectConnection implements Connection {
             Socket videoSocket = null;
             Socket audioSocket = null;
             Socket controlSocket = null;
+            Socket micSocket = null;
             boolean dummyByte = sendDummyByte;
             try {
                 if (video) {
@@ -112,12 +117,17 @@ public final class RemoteDirectConnection implements Connection {
                         controlSocket.getOutputStream().write(0);
                     }
                 }
+                if (mic) {
+                    // Read only: the host writes its microphone to it
+                    micSocket = connect(address, false);
+                }
                 Ln.i("Connected to " + address);
-                return new RemoteDirectConnection(videoSocket, audioSocket, controlSocket);
+                return new RemoteDirectConnection(videoSocket, audioSocket, controlSocket, micSocket);
             } catch (IOException e) {
                 closeQuietly(videoSocket);
                 closeQuietly(audioSocket);
                 closeQuietly(controlSocket);
+                closeQuietly(micSocket);
                 Ln.i("Connection to " + address + " failed (" + e.getMessage() + "), retrying");
                 SystemClock.sleep(RETRY_DELAY_MS);
             }
@@ -153,6 +163,11 @@ public final class RemoteDirectConnection implements Connection {
     }
 
     @Override
+    public FileDescriptor getMicFd() {
+        return micPfd != null ? micPfd.getFileDescriptor() : null;
+    }
+
+    @Override
     public ControlChannel getControlChannel() {
         return controlChannel;
     }
@@ -169,6 +184,7 @@ public final class RemoteDirectConnection implements Connection {
         shutdown(videoSocket);
         shutdown(audioSocket);
         shutdown(controlSocket);
+        shutdown(micSocket);
     }
 
     @Override
@@ -179,8 +195,12 @@ public final class RemoteDirectConnection implements Connection {
         if (audioPfd != null) {
             audioPfd.close();
         }
+        if (micPfd != null) {
+            micPfd.close();
+        }
         closeQuietly(videoSocket);
         closeQuietly(audioSocket);
         closeQuietly(controlSocket);
+        closeQuietly(micSocket);
     }
 }

@@ -172,6 +172,11 @@ public final class DesktopConnection implements Connection {
     }
 
     @Override
+    public FileDescriptor getMicFd() {
+        return null;
+    }
+
+    @Override
     public FileDescriptor getAudioFd() {
         return audioFd;
     }

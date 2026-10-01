@@ -98,6 +98,7 @@ public final class Server {
         boolean control = options.getControl();
         boolean video = options.getVideo();
         boolean audio = options.getAudio();
+        boolean mic = options.getMic();
         boolean sendDummyByte = options.getSendDummyByte();
 
         Workarounds.apply();
@@ -106,7 +107,8 @@ public final class Server {
 
         Connection connection;
         if (options.getRemoteHost() != null) {
-            connection = RemoteDirectConnection.open(options.getRemoteHost(), options.getRemotePort(), video, audio, control, sendDummyByte);
+            connection = RemoteDirectConnection.open(options.getRemoteHost(), options.getRemotePort(), video, audio, control, mic,
+                    sendDummyByte);
         } else {
             connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
         }
