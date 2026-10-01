@@ -87,6 +87,10 @@ public class Options {
     private boolean sendDummyByte = true; // write a byte on start to detect connection issues
     private boolean sendStreamMeta = true; // write the stream metadata (codec and session)
 
+    // Connect to this host over TCP instead of serving the desktop client over adb
+    private String remoteHost;
+    private int remotePort = 5000;
+
     public Ln.Level getLogLevel() {
         return logLevel;
     }
@@ -313,6 +317,14 @@ public class Options {
 
     public boolean getSendDummyByte() {
         return sendDummyByte;
+    }
+
+    public String getRemoteHost() {
+        return remoteHost;
+    }
+
+    public int getRemotePort() {
+        return remotePort;
     }
 
     public boolean getSendStreamMeta() {
@@ -558,6 +570,12 @@ public class Options {
                     break;
                 case "send_stream_meta":
                     options.sendStreamMeta = Boolean.parseBoolean(value);
+                    break;
+                case "remote_host":
+                    options.remoteHost = value;
+                    break;
+                case "remote_port":
+                    options.remotePort = Integer.parseInt(value);
                     break;
                 case "raw_stream":
                     boolean rawStream = Boolean.parseBoolean(value);

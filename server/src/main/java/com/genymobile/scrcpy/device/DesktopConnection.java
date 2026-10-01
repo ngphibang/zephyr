@@ -8,12 +8,11 @@ import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 
-import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-public final class DesktopConnection implements Closeable {
+public final class DesktopConnection implements Connection {
 
     private static final int DEVICE_NAME_FIELD_LENGTH = 64;
 
@@ -125,6 +124,7 @@ public final class DesktopConnection implements Closeable {
         return controlSocket;
     }
 
+    @Override
     public void shutdown() throws IOException {
         if (videoSocket != null) {
             videoSocket.shutdownInput();
@@ -140,6 +140,7 @@ public final class DesktopConnection implements Closeable {
         }
     }
 
+    @Override
     public void close() throws IOException {
         if (videoSocket != null) {
             videoSocket.close();
@@ -152,6 +153,7 @@ public final class DesktopConnection implements Closeable {
         }
     }
 
+    @Override
     public void sendDeviceMeta(String deviceName) throws IOException {
         byte[] buffer = new byte[DEVICE_NAME_FIELD_LENGTH];
 
@@ -164,14 +166,17 @@ public final class DesktopConnection implements Closeable {
         IO.writeFully(fd, buffer, 0, buffer.length);
     }
 
+    @Override
     public FileDescriptor getVideoFd() {
         return videoFd;
     }
 
+    @Override
     public FileDescriptor getAudioFd() {
         return audioFd;
     }
 
+    @Override
     public ControlChannel getControlChannel() {
         return controlChannel;
     }

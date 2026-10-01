@@ -9,8 +9,10 @@ import com.genymobile.scrcpy.audio.AudioRawRecorder;
 import com.genymobile.scrcpy.audio.AudioSource;
 import com.genymobile.scrcpy.control.ControlChannel;
 import com.genymobile.scrcpy.control.Controller;
+import com.genymobile.scrcpy.device.Connection;
 import com.genymobile.scrcpy.device.DesktopConnection;
 import com.genymobile.scrcpy.device.Device;
+import com.genymobile.scrcpy.device.RemoteDirectConnection;
 import com.genymobile.scrcpy.device.Streamer;
 import com.genymobile.scrcpy.model.ConfigurationException;
 import com.genymobile.scrcpy.model.NewDisplay;
@@ -102,7 +104,12 @@ public final class Server {
 
         List<AsyncProcessor> asyncProcessors = new ArrayList<>();
 
-        DesktopConnection connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
+        Connection connection;
+        if (options.getRemoteHost() != null) {
+            connection = RemoteDirectConnection.open(options.getRemoteHost(), options.getRemotePort(), video, audio, control, sendDummyByte);
+        } else {
+            connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
+        }
         try {
             if (options.getSendDeviceMeta()) {
                 connection.sendDeviceMeta(Device.getDeviceName());
