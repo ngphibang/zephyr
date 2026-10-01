@@ -105,7 +105,8 @@ config MPIPE_NET_BUF_POOL_COUNT
 	help
 	  Number of buffers needed in the shared mpipe net_buf pool across pipelines.
 	  This is sum of the maximum number of in-flight net_buf buffers of each
-	  pipeline at any given time.
+	  pipeline at any given time, including the views a source or a parser
+	  has in flight (see mpipe_buffer_view()).
 
 config MPIPE_DUMP
 	bool "Pipeline topology dump"
