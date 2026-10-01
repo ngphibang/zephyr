@@ -354,7 +354,7 @@ int main(void)
 		 * unspecified address is refused by the socket layer.
 		 */
 		(void)memset(&client_addr, 0, sizeof(client_addr));
-		if (zsock_getpeername(tcp_src.client_fd, (struct sockaddr *)&client_addr,
+		if (zsock_getpeername(tcp_src.ssrc.fd, (struct sockaddr *)&client_addr,
 				      &addr_len) < 0) {
 			LOG_ERR("Failed to get the video client address (%d)", errno);
 		}
