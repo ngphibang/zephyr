@@ -7,6 +7,7 @@ import com.genymobile.scrcpy.audio.AudioEncoder;
 import com.genymobile.scrcpy.audio.AudioPlaybackCapture;
 import com.genymobile.scrcpy.audio.AudioRawRecorder;
 import com.genymobile.scrcpy.audio.AudioSource;
+import com.genymobile.scrcpy.audio.MicPlayer;
 import com.genymobile.scrcpy.control.ControlChannel;
 import com.genymobile.scrcpy.control.Controller;
 import com.genymobile.scrcpy.device.Connection;
@@ -34,6 +35,7 @@ import android.os.Looper;
 import android.system.Os;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -172,6 +174,19 @@ public final class Server {
 
                 if (controller != null) {
                     controller.setSurfaceCapture(surfaceCapture);
+                }
+            }
+
+            if (mic) {
+                FileDescriptor micFd = connection.getMicFd();
+                if (micFd == null) {
+                    Ln.w("No microphone stream on this connection");
+                } else {
+                    MicPlayer micPlayer = new MicPlayer(micFd);
+                    asyncProcessors.add(micPlayer);
+                    if (controller != null) {
+                        controller.setMicPlayer(micPlayer);
+                    }
                 }
             }
 

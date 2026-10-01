@@ -2,6 +2,7 @@ package com.genymobile.scrcpy.control;
 
 import com.genymobile.scrcpy.AndroidVersions;
 import com.genymobile.scrcpy.AsyncProcessor;
+import com.genymobile.scrcpy.audio.MicPlayer;
 import com.genymobile.scrcpy.CleanUp;
 import com.genymobile.scrcpy.Options;
 import com.genymobile.scrcpy.device.Device;
@@ -112,6 +113,9 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
     // Used for resetting video encoding on RESET_VIDEO message or for sending camera controls
     private SurfaceCapture surfaceCapture;
 
+    // Plays the client's microphone stream; the client sets its mode
+    private MicPlayer micPlayer;
+
     public Controller(ControlChannel controlChannel, CleanUp cleanUp, Options options) {
         this.camera = options.getVideoSource() == VideoSource.CAMERA;
         this.controlChannel = controlChannel;
@@ -177,6 +181,10 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
 
     public void setSurfaceCapture(SurfaceCapture surfaceCapture) {
         this.surfaceCapture = surfaceCapture;
+    }
+
+    public void setMicPlayer(MicPlayer micPlayer) {
+        this.micPlayer = micPlayer;
     }
 
     private UhidManager getUhidManager() {
