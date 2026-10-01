@@ -301,6 +301,11 @@ static void mpipe_pipeline_thread_func(void *p1, void *p2, void *p3)
 			acq_ret = src->pool->acquire_buffer(src->pool, &buffer);
 		}
 
+		/* A live source that had to drop what it captured: nothing to push this time */
+		if (acq_ret == -EAGAIN) {
+			continue;
+		}
+
 		/*
 		 * EOS: playback sources reach the end of the file or
 		 * live sources reache the limit number of buffers (-ENODATA)
