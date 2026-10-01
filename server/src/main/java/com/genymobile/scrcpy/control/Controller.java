@@ -350,6 +350,8 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
 
         // Events for all sources (display or camera)
         switch (type) {
+            case ControlMessage.TYPE_KEEP_ALIVE:
+                return true;
             case ControlMessage.TYPE_SET_AUDIO_SOURCE:
                 if (audioRecorder != null) {
                     audioRecorder.setSource(msg.getAudioSource());
