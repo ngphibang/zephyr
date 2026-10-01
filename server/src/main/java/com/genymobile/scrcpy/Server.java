@@ -20,10 +20,12 @@ import com.genymobile.scrcpy.opengl.OpenGLRunner;
 import com.genymobile.scrcpy.util.Ln;
 import com.genymobile.scrcpy.util.LogUtils;
 import com.genymobile.scrcpy.video.CameraCapture;
+import com.genymobile.scrcpy.video.JpegCompressor;
 import com.genymobile.scrcpy.video.NewDisplayCapture;
 import com.genymobile.scrcpy.video.ScreenCapture;
 import com.genymobile.scrcpy.video.SurfaceCapture;
 import com.genymobile.scrcpy.video.SurfaceEncoder;
+import com.genymobile.scrcpy.video.VideoCodec;
 import com.genymobile.scrcpy.video.VideoSource;
 
 import android.annotation.SuppressLint;
@@ -160,8 +162,13 @@ public final class Server {
                 } else {
                     surfaceCapture = new CameraCapture(options);
                 }
-                SurfaceEncoder surfaceEncoder = new SurfaceEncoder(surfaceCapture, videoStreamer, options);
-                asyncProcessors.add(surfaceEncoder);
+                AsyncProcessor videoEncoder;
+                if (options.getVideoCodec() == VideoCodec.MJPEG) {
+                    videoEncoder = new JpegCompressor(surfaceCapture, videoStreamer, options);
+                } else {
+                    videoEncoder = new SurfaceEncoder(surfaceCapture, videoStreamer, options);
+                }
+                asyncProcessors.add(videoEncoder);
 
                 if (controller != null) {
                     controller.setSurfaceCapture(surfaceCapture);

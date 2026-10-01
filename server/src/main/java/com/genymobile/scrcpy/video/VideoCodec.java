@@ -7,6 +7,8 @@ import android.media.MediaFormat;
 
 public enum VideoCodec implements Codec {
     H264(0x68_32_36_34, "h264", MediaFormat.MIMETYPE_VIDEO_AVC),
+    // Not a MediaCodec encoder: each frame is compressed to a JPEG image by JpegCompressor
+    MJPEG(0x6d_6a_70_67, "mjpeg", "image/jpeg"),
     H265(0x68_32_36_35, "h265", MediaFormat.MIMETYPE_VIDEO_HEVC),
     @SuppressLint("InlinedApi") // introduced in API 29
     AV1(0x00_61_76_31, "av1", MediaFormat.MIMETYPE_VIDEO_AV1),
