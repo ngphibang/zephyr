@@ -94,6 +94,10 @@ struct mpipe_queue {
 	uint8_t size;
 	/** Leak policy of a full queue, an @ref mpipe_base_queue_leak */
 	uint8_t leak;
+	/** Pool the element downstream proposed, or NULL (not owned) */
+	struct mpipe_buffer_pool *downstream_pool;
+	/** Config the element downstream proposed, by value or from its pool */
+	struct mpipe_buffer_pool_config downstream_cfg;
 	/**
 	 * Flushing flag. When set (on PAUSED -> READY), the chain_fn drops incoming
 	 * buffers instead of enqueuing them. This releases any upstream producer
