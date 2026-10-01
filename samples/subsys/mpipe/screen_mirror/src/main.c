@@ -654,6 +654,9 @@ int main(void)
 #endif
 
 	control_init();
+#if defined(CONFIG_SCREEN_MIRROR_MIC)
+	mic_mode_init();
+#endif
 
 	ret = build_video_stream_pipeline();
 	if (ret < 0) {
