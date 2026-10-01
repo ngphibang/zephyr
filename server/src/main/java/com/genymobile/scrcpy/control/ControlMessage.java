@@ -32,6 +32,8 @@ public final class ControlMessage {
     public static final int TYPE_SCAN_FILE = 22;
     // Sent by a client to check that the control connection is still alive; carries nothing and does nothing
     public static final int TYPE_KEEP_ALIVE = 100;
+    // What to do with the microphone stream the client sends: one byte, a MicPlayer.MODE_* value
+    public static final int TYPE_SET_MIC_MODE = 101;
     // What to send on the audio stream: one byte, a SwitchableAudioRecorder.SOURCE_* value
     public static final int TYPE_SET_AUDIO_SOURCE = 102;
 
@@ -64,9 +66,17 @@ public final class ControlMessage {
     private int productId;
     private int width;
     private int height;
+    private int micMode;
     private int audioSource;
 
     private ControlMessage() {
+    }
+
+    public static ControlMessage createSetMicMode(int micMode) {
+        ControlMessage msg = new ControlMessage();
+        msg.type = TYPE_SET_MIC_MODE;
+        msg.micMode = micMode;
+        return msg;
     }
 
     public static ControlMessage createSetAudioSource(int audioSource) {
@@ -281,6 +291,10 @@ public final class ControlMessage {
 
     public boolean getOn() {
         return on;
+    }
+
+    public int getMicMode() {
+        return micMode;
     }
 
     public int getAudioSource() {

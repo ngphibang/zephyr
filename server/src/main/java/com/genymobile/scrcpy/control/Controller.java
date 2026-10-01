@@ -352,6 +352,11 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
         switch (type) {
             case ControlMessage.TYPE_KEEP_ALIVE:
                 return true;
+            case ControlMessage.TYPE_SET_MIC_MODE:
+                if (micPlayer != null) {
+                    micPlayer.setMode(msg.getMicMode());
+                }
+                return true;
             case ControlMessage.TYPE_SET_AUDIO_SOURCE:
                 if (audioRecorder != null) {
                     audioRecorder.setSource(msg.getAudioSource());
