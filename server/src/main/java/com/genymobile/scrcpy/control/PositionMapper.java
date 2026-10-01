@@ -33,13 +33,18 @@ public final class PositionMapper {
 
     public Point map(Position position) {
         Size clientVideoSize = position.getScreenSize();
+        Point point = position.getPoint();
         if (!videoSize.equals(clientVideoSize)) {
-            // The client sends a click relative to a video with wrong dimensions,
-            // the device may have been rotated since the event was generated, so ignore the event
-            return null;
+            if (clientVideoSize.getWidth() == 0 || clientVideoSize.getHeight() == 0) {
+                return null;
+            }
+            // The client displays the video scaled to its own size (the MJPEG stream is scaled to the
+            // receiver's panel), so a position relative to that size is scaled back to the video size
+            int x = point.getX() * videoSize.getWidth() / clientVideoSize.getWidth();
+            int y = point.getY() * videoSize.getHeight() / clientVideoSize.getHeight();
+            point = new Point(x, y);
         }
 
-        Point point = position.getPoint();
         if (videoToDeviceMatrix != null) {
             point = videoToDeviceMatrix.apply(point);
         }
