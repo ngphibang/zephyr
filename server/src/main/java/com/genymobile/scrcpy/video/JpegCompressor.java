@@ -59,6 +59,10 @@ public class JpegCompressor implements AsyncProcessor {
     private Thread thread;
 
     private HandlerThread imageThread;
+    // Held while a frame is read from the reader and while the reader is closed, so that a
+    // reset never closes the reader under the listener (the ImageReader crashes natively)
+    private final Object readerLock = new Object();
+    private ImageReader currentReader;
     private final ByteArrayOutputStream jpeg = new ByteArrayOutputStream(256 * 1024);
     private long lastFrameMs;
     private IOException streamError;
@@ -102,6 +106,16 @@ public class JpegCompressor implements AsyncProcessor {
     }
 
     private void onImageAvailable(ImageReader reader, Size captureSize) {
+        synchronized (readerLock) {
+            if (reader != currentReader) {
+                // The reader was closed by a reset; whatever it still signals is stale
+                return;
+            }
+            handleImage(reader, captureSize);
+        }
+    }
+
+    private void handleImage(ImageReader reader, Size captureSize) {
         Image image = reader.acquireLatestImage();
         if (image == null) {
             return;
@@ -173,6 +187,9 @@ public class JpegCompressor implements AsyncProcessor {
                 Size size = capture.getSize();
 
                 ImageReader reader = ImageReader.newInstance(size.getWidth(), size.getHeight(), PixelFormat.RGBA_8888, 2);
+                synchronized (readerLock) {
+                    currentReader = reader;
+                }
                 reader.setOnImageAvailableListener(r -> onImageAvailable(r, size), imageHandler);
                 Surface surface = reader.getSurface();
                 try {
@@ -185,8 +202,13 @@ public class JpegCompressor implements AsyncProcessor {
                     alive = !stopped.get() && !capture.isClosed();
                 } finally {
                     capture.stop();
-                    surface.release();
-                    reader.close();
+                    // Wait for a frame in flight, then make sure no later one is taken
+                    synchronized (readerLock) {
+                        currentReader = null;
+                        reader.setOnImageAvailableListener(null, null);
+                        surface.release();
+                        reader.close();
+                    }
                 }
             } while (alive);
         } finally {
