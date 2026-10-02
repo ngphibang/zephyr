@@ -6,6 +6,7 @@
 
 package com.genymobile.scrcpy.audio;
 
+import com.genymobile.scrcpy.AndroidVersions;
 import com.genymobile.scrcpy.AsyncProcessor;
 import com.genymobile.scrcpy.util.Ln;
 
@@ -13,6 +14,8 @@ import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.os.Build;
+import android.os.SystemClock;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -22,8 +25,9 @@ import java.io.InputStream;
 /**
  * Play the microphone stream a client sends.
  *
- * The stream is raw PCM, 16 kHz, 32-bit little-endian, one channel, in blocks of 10 ms; the 16
- * most significant bits of each sample are kept. What is done with it is the mode the client
+ * The stream is raw PCM, 16 kHz, 32-bit little-endian, two channels, in blocks of 10 ms: the two
+ * slots of the host's PDM line, of which the microphone drives one, so the channels are summed
+ * into one 16-bit sample, keeping the 16 most significant bits. What is done with it is the mode the client
  * sets through a control message: played on the device's speaker, fed to the applications
  * recording from the device's microphone, or dropped. The stream is read whatever the mode, so
  * that the client is never held back and a mode change takes effect on the next block.
@@ -35,7 +39,12 @@ public final class MicPlayer implements AsyncProcessor {
     public static final int MODE_INJECT = 2;
 
     private static final int SAMPLE_RATE = 16000;
+    private static final int CHANNELS = 2;
     private static final int BLOCK_SAMPLES = SAMPLE_RATE / 100;
+    // Recording apps capture at 48 kHz and the capture path does not upsample from the
+    // injection mix, so the mix runs at 48 kHz and the stream is upsampled for it
+    private static final int INJECT_RATE = 48000;
+    private static final int INJECT_FACTOR = INJECT_RATE / SAMPLE_RATE;
 
     private final FileDescriptor fd;
     private volatile int mode = MODE_SPEAKER;
@@ -89,10 +98,18 @@ public final class MicPlayer implements AsyncProcessor {
                     .setSampleRate(SAMPLE_RATE)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build();
-            AudioAttributes attributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build();
+            // The device's own audio capture makes the remote submix the output of the whole
+            // media strategy, whatever a track's capture policy says, so a media, navigation,
+            // accessibility or assistant track would go to the host instead of the speaker.
+            // The alarm usage belongs to the sonification strategy, which stays on the
+            // speaker, and its volume is rarely turned down.
+            AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
+            if (Build.VERSION.SDK_INT >= AndroidVersions.API_29_ANDROID_10) {
+                attributesBuilder.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE);
+            }
+            AudioAttributes attributes = attributesBuilder.build();
             // Two blocks of room above the minimum: enough to ride a late block, not enough to lag
             int bufferSize = Math.max(minSize, 4 * BLOCK_SAMPLES * 2);
             speaker = new AudioTrack(attributes, format, bufferSize, AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE);
@@ -101,9 +118,29 @@ public final class MicPlayer implements AsyncProcessor {
         return speaker;
     }
 
+    private final byte[] upsampled = new byte[BLOCK_SAMPLES * INJECT_FACTOR * 2];
+    private short lastSample;
+
+    /* Linear interpolation from the block rate to the injection rate, continuous across blocks */
+    private byte[] upsample(byte[] pcm16) {
+        int o = 0;
+        short prev = lastSample;
+        for (int i = 0; i < BLOCK_SAMPLES; i++) {
+            short cur = (short) ((pcm16[2 * i] & 0xFF) | (pcm16[2 * i + 1] << 8));
+            for (int k = 1; k <= INJECT_FACTOR; k++) {
+                int v = prev + (cur - prev) * k / INJECT_FACTOR;
+                upsampled[o++] = (byte) v;
+                upsampled[o++] = (byte) (v >> 8);
+            }
+            prev = cur;
+        }
+        lastSample = prev;
+        return upsampled;
+    }
+
     private AudioTrack injectionTrack() {
         if (injector == null) {
-            injector = AudioInjector.open(SAMPLE_RATE);
+            injector = AudioInjector.open(INJECT_RATE);
             if (injector == null) {
                 return null;
             }
@@ -136,22 +173,41 @@ public final class MicPlayer implements AsyncProcessor {
         }
 
         if (track != null) {
+            byte[] data = (mode == MODE_INJECT) ? upsample(pcm16) : pcm16;
             // Never block on a sink: an injection track with nobody recording does not drain
-            track.write(pcm16, 0, pcm16.length, AudioTrack.WRITE_NON_BLOCKING);
+            track.write(data, 0, data.length, AudioTrack.WRITE_NON_BLOCKING);
         }
     }
 
     private void run() throws IOException {
-        byte[] block = new byte[BLOCK_SAMPLES * 4];
+        byte[] block = new byte[BLOCK_SAMPLES * CHANNELS * 4];
         byte[] pcm16 = new byte[BLOCK_SAMPLES * 2];
         int lastMode = mode;
+        long statBlocks = 0;
+        long statPeak = 0;
+        long statT0 = SystemClock.uptimeMillis();
 
         try (InputStream in = new FileInputStream(fd)) {
             while (!stopped && readFully(in, block)) {
                 for (int i = 0; i < BLOCK_SAMPLES; i++) {
-                    // Little-endian 32-bit sample: its two high bytes are the 16-bit sample
-                    pcm16[2 * i] = block[4 * i + 2];
-                    pcm16[2 * i + 1] = block[4 * i + 3];
+                    // Little-endian 32-bit samples: the two high bytes of each are its 16 bits
+                    int sum = 0;
+                    for (int c = 0; c < CHANNELS; c++) {
+                        int o = (i * CHANNELS + c) * 4;
+                        sum += (short) ((block[o + 2] & 0xFF) | (block[o + 3] << 8));
+                    }
+                    int v = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sum));
+                    pcm16[2 * i] = (byte) v;
+                    pcm16[2 * i + 1] = (byte) (v >> 8);
+                    statPeak = Math.max(statPeak, Math.abs(v));
+                }
+                statBlocks++;
+                long now = SystemClock.uptimeMillis();
+                if (now - statT0 >= 1000) {
+                    Ln.d("Microphone: " + statBlocks + " blocks/s, peak " + statPeak + "/32767, mode " + modeName(mode));
+                    statBlocks = 0;
+                    statPeak = 0;
+                    statT0 = now;
                 }
                 play(pcm16, lastMode);
                 lastMode = mode;
