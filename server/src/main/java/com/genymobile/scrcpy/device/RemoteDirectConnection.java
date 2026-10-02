@@ -6,11 +6,16 @@
 
 package com.genymobile.scrcpy.device;
 
+import com.genymobile.scrcpy.FakeContext;
 import com.genymobile.scrcpy.control.ControlChannel;
 import com.genymobile.scrcpy.util.IO;
 import com.genymobile.scrcpy.util.Ln;
 import com.genymobile.scrcpy.util.StringUtils;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 
@@ -55,9 +60,37 @@ public final class RemoteDirectConnection implements Connection {
         controlChannel = controlSocket != null ? new ControlChannel(controlSocket.getInputStream(), controlSocket.getOutputStream()) : null;
     }
 
+    /**
+     * The Wi-Fi network, when the device is on one.
+     *
+     * The host is an access point with no route to the internet, and Android sends a plain
+     * socket over its default network, which is whichever one has internet, typically mobile
+     * data. The sockets are bound to the Wi-Fi network instead, so they reach the host.
+     */
+    private static Network wifiNetwork() {
+        try {
+            // The shell user's own context: the system context's package is not the caller's
+            Context context = FakeContext.get();
+            ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
+            for (Network network : cm.getAllNetworks()) {
+                NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+                if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    return network;
+                }
+            }
+        } catch (RuntimeException e) {
+            Ln.w("Could not look the Wi-Fi network up", e);
+        }
+        return null;
+    }
+
     private static Socket connect(InetSocketAddress address, boolean noDelay) throws IOException {
         Socket socket = new Socket();
         try {
+            Network wifi = wifiNetwork();
+            if (wifi != null) {
+                wifi.bindSocket(socket);
+            }
             socket.setTcpNoDelay(noDelay);
             socket.connect(address, CONNECT_TIMEOUT_MS);
         } catch (IOException | RuntimeException e) {
