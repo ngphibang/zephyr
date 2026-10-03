@@ -54,7 +54,7 @@ public final class Server {
 
     private static class Completion {
         private int running;
-        private boolean fatalError;
+        boolean fatalError;
 
         Completion(int running) {
             this.running = running;
@@ -75,7 +75,7 @@ public final class Server {
         // not instantiable
     }
 
-    private static void scrcpy(Options options) throws IOException, ConfigurationException {
+    private static boolean scrcpy(Options options, CleanUp cleanUp) throws IOException, ConfigurationException {
         if (Build.VERSION.SDK_INT < AndroidVersions.API_31_ANDROID_12 && options.getVideoSource() == VideoSource.CAMERA) {
             Ln.e("Camera mirroring is not supported before Android 12");
             throw new ConfigurationException("Camera mirroring is not supported");
@@ -92,11 +92,6 @@ public final class Server {
             }
         }
 
-        CleanUp cleanUp = null;
-
-        if (options.getCleanup()) {
-            cleanUp = CleanUp.start(options);
-        }
 
         int scid = options.getScid();
         boolean tunnelForward = options.isTunnelForward();
@@ -108,6 +103,7 @@ public final class Server {
 
         Workarounds.apply();
 
+        boolean sessionFatal = false;
         List<AsyncProcessor> asyncProcessors = new ArrayList<>();
 
         Connection connection;
@@ -206,10 +202,8 @@ public final class Server {
             }
 
             Looper.loop(); // interrupted by the Completion implementation
+            sessionFatal = completion.fatalError;
         } finally {
-            if (cleanUp != null) {
-                cleanUp.interrupt();
-            }
             for (AsyncProcessor asyncProcessor : asyncProcessors) {
                 asyncProcessor.stop();
             }
@@ -217,9 +211,6 @@ public final class Server {
             connection.shutdown();
 
             try {
-                if (cleanUp != null) {
-                    cleanUp.join();
-                }
                 for (AsyncProcessor asyncProcessor : asyncProcessors) {
                     asyncProcessor.join();
                 }
@@ -230,6 +221,48 @@ public final class Server {
             }
 
             connection.close();
+        }
+
+        return sessionFatal;
+    }
+
+    /**
+     * Serve a remote host for as long as the server lives.
+     *
+     * The host is a fixed station and the device comes and goes: when a session ends without
+     * a fatal error, the server connects again rather than exit, so no relaunch is needed
+     * after the host restarts or the device left its network. Each session runs on a thread of
+     * its own with its own main looper, since a looper cannot be reused once quit.
+     */
+    private static void serveRemote(Options options, CleanUp cleanUp) throws ConfigurationException, InterruptedException {
+        while (true) {
+            final boolean[] fatal = {false};
+            final Exception[] failure = {null};
+
+            Thread session = new Thread(() -> {
+                prepareMainLooper();
+                try {
+                    fatal[0] = scrcpy(options, cleanUp);
+                } catch (ConfigurationException | IOException e) {
+                    failure[0] = e;
+                }
+            }, "session");
+            session.start();
+            session.join();
+
+            if (failure[0] instanceof ConfigurationException) {
+                throw (ConfigurationException) failure[0];
+            }
+            if (fatal[0]) {
+                Ln.e("Session ended on a fatal error, exiting");
+                return;
+            }
+            if (failure[0] != null) {
+                Ln.w("Session failed", failure[0]);
+            }
+
+            Ln.i("Host gone, reconnecting");
+            Thread.sleep(1000);
         }
     }
 
@@ -274,9 +307,11 @@ public final class Server {
 
         dropRootPrivileges();
 
-        prepareMainLooper();
-
         Options options = Options.parse(args);
+        boolean remote = options.getRemoteHost() != null;
+        if (!remote) {
+            prepareMainLooper();
+        }
 
         Ln.disableSystemStreams();
         Ln.initLogLevel(options.getLogLevel());
@@ -308,10 +343,28 @@ public final class Server {
             return;
         }
 
+        CleanUp cleanUp = null;
+        if (options.getCleanup()) {
+            cleanUp = CleanUp.start(options);
+        }
+
         try {
-            scrcpy(options);
+            if (remote) {
+                serveRemote(options, cleanUp);
+            } else {
+                scrcpy(options, cleanUp);
+            }
         } catch (ConfigurationException e) {
             // Do not print stack trace, a user-friendly error-message has already been logged
+        } finally {
+            if (cleanUp != null) {
+                cleanUp.interrupt();
+                try {
+                    cleanUp.join();
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+            }
         }
     }
 
