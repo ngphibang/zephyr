@@ -3,6 +3,7 @@ package com.genymobile.scrcpy.control;
 import com.genymobile.scrcpy.AndroidVersions;
 import com.genymobile.scrcpy.AsyncProcessor;
 import com.genymobile.scrcpy.audio.MicPlayer;
+import com.genymobile.scrcpy.audio.SwitchableAudioRecorder;
 import com.genymobile.scrcpy.CleanUp;
 import com.genymobile.scrcpy.Options;
 import com.genymobile.scrcpy.device.Device;
@@ -116,6 +117,9 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
     // Plays the client's microphone stream; the client sets its mode
     private MicPlayer micPlayer;
 
+    // Feeds the audio stream; the client chooses what it carries
+    private SwitchableAudioRecorder audioRecorder;
+
     public Controller(ControlChannel controlChannel, CleanUp cleanUp, Options options) {
         this.camera = options.getVideoSource() == VideoSource.CAMERA;
         this.controlChannel = controlChannel;
@@ -185,6 +189,10 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
 
     public void setMicPlayer(MicPlayer micPlayer) {
         this.micPlayer = micPlayer;
+    }
+
+    public void setAudioRecorder(SwitchableAudioRecorder audioRecorder) {
+        this.audioRecorder = audioRecorder;
     }
 
     private UhidManager getUhidManager() {
@@ -342,6 +350,11 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
 
         // Events for all sources (display or camera)
         switch (type) {
+            case ControlMessage.TYPE_SET_AUDIO_SOURCE:
+                if (audioRecorder != null) {
+                    audioRecorder.setSource(msg.getAudioSource());
+                }
+                return true;
             case ControlMessage.TYPE_RESET_VIDEO:
                 resetVideo();
                 return true;

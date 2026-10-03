@@ -8,6 +8,7 @@ import com.genymobile.scrcpy.audio.AudioPlaybackCapture;
 import com.genymobile.scrcpy.audio.AudioRawRecorder;
 import com.genymobile.scrcpy.audio.AudioSource;
 import com.genymobile.scrcpy.audio.MicPlayer;
+import com.genymobile.scrcpy.audio.SwitchableAudioRecorder;
 import com.genymobile.scrcpy.control.ControlChannel;
 import com.genymobile.scrcpy.control.Controller;
 import com.genymobile.scrcpy.device.Connection;
@@ -141,7 +142,14 @@ public final class Server {
 
                 Streamer audioStreamer = new Streamer(connection.getAudioFd(), audioCodec, options.getSendStreamMeta(), options.getSendFrameMeta());
                 AsyncProcessor audioRecorder;
-                if (audioCodec == AudioCodec.RAW) {
+                if (audioCodec == AudioCodec.RAW && options.getRemoteHost() != null) {
+                    // The remote host may ask for the playback or the microphone at any time
+                    SwitchableAudioRecorder switchable = new SwitchableAudioRecorder(audioSource, options.getAudioDup(), audioStreamer);
+                    if (controller != null) {
+                        controller.setAudioRecorder(switchable);
+                    }
+                    audioRecorder = switchable;
+                } else if (audioCodec == AudioCodec.RAW) {
                     audioRecorder = new AudioRawRecorder(audioCapture, audioStreamer);
                 } else {
                     audioRecorder = new AudioEncoder(audioCapture, audioStreamer, options);

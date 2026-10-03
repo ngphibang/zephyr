@@ -30,6 +30,8 @@ public final class ControlMessage {
     public static final int TYPE_CAMERA_ZOOM_OUT = 20;
     public static final int TYPE_RESIZE_DISPLAY = 21;
     public static final int TYPE_SCAN_FILE = 22;
+    // What to send on the audio stream: one byte, a SwitchableAudioRecorder.SOURCE_* value
+    public static final int TYPE_SET_AUDIO_SOURCE = 102;
 
     public static final long SEQUENCE_INVALID = 0;
 
@@ -60,8 +62,16 @@ public final class ControlMessage {
     private int productId;
     private int width;
     private int height;
+    private int audioSource;
 
     private ControlMessage() {
+    }
+
+    public static ControlMessage createSetAudioSource(int audioSource) {
+        ControlMessage msg = new ControlMessage();
+        msg.type = TYPE_SET_AUDIO_SOURCE;
+        msg.audioSource = audioSource;
+        return msg;
     }
 
     public static ControlMessage createInjectKeycode(int action, int keycode, int repeat, int metaState) {
@@ -269,6 +279,10 @@ public final class ControlMessage {
 
     public boolean getOn() {
         return on;
+    }
+
+    public int getAudioSource() {
+        return audioSource;
     }
 
     public int getVendorId() {

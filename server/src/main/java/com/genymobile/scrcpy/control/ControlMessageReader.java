@@ -41,6 +41,8 @@ public class ControlMessageReader {
                 return parseSetClipboard();
             case ControlMessage.TYPE_SET_DISPLAY_POWER:
                 return parseSetDisplayPower();
+            case ControlMessage.TYPE_SET_AUDIO_SOURCE:
+                return parseSetAudioSource();
             case ControlMessage.TYPE_EXPAND_NOTIFICATION_PANEL:
             case ControlMessage.TYPE_EXPAND_SETTINGS_PANEL:
             case ControlMessage.TYPE_COLLAPSE_PANELS:
@@ -147,6 +149,11 @@ public class ControlMessageReader {
     private ControlMessage parseSetDisplayPower() throws IOException {
         boolean on = dis.readBoolean();
         return ControlMessage.createSetDisplayPower(on);
+    }
+
+    private ControlMessage parseSetAudioSource() throws IOException {
+        int source = dis.readUnsignedByte();
+        return ControlMessage.createSetAudioSource(source);
     }
 
     private ControlMessage parseUhidCreate() throws IOException {
