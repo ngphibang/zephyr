@@ -12,10 +12,8 @@ import com.genymobile.scrcpy.util.IO;
 import com.genymobile.scrcpy.util.Ln;
 import com.genymobile.scrcpy.util.StringUtils;
 
-import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 
@@ -24,6 +22,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * A connection the server opens itself, to a host that accepts the streams on one TCP port.
@@ -61,43 +62,41 @@ public final class RemoteDirectConnection implements Connection {
     }
 
     /**
-     * The Wi-Fi network, when the device is on one.
+     * Connect to the host over whichever network reaches it.
      *
      * The host is an access point with no route to the internet, and Android sends a plain
      * socket over its default network, which is whichever one has internet, typically mobile
-     * data. The sockets are bound to the Wi-Fi network instead, so they reach the host.
+     * data. Asking a network's capabilities is refused to the shell user, so the connection is
+     * simply tried bound to each network in turn, the default route last.
      */
-    private static Network wifiNetwork() {
+    private static Socket connect(InetSocketAddress address, boolean noDelay) throws IOException {
+        List<Network> networks = new ArrayList<>();
         try {
-            // The shell user's own context: the system context's package is not the caller's
-            Context context = FakeContext.get();
-            ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
-            for (Network network : cm.getAllNetworks()) {
-                NetworkCapabilities caps = cm.getNetworkCapabilities(network);
-                if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    return network;
-                }
+            ConnectivityManager cm = FakeContext.get().getSystemService(ConnectivityManager.class);
+            if (cm != null) {
+                networks.addAll(Arrays.asList(cm.getAllNetworks()));
             }
         } catch (RuntimeException e) {
-            Ln.w("Could not look the Wi-Fi network up", e);
+            Ln.w("Could not list the networks", e);
         }
-        return null;
-    }
+        networks.add(null); // the default route
 
-    private static Socket connect(InetSocketAddress address, boolean noDelay) throws IOException {
-        Socket socket = new Socket();
-        try {
-            Network wifi = wifiNetwork();
-            if (wifi != null) {
-                wifi.bindSocket(socket);
+        IOException last = null;
+        for (Network network : networks) {
+            Socket socket = new Socket();
+            try {
+                if (network != null) {
+                    network.bindSocket(socket);
+                }
+                socket.setTcpNoDelay(noDelay);
+                socket.connect(address, CONNECT_TIMEOUT_MS);
+                return socket;
+            } catch (IOException | RuntimeException e) {
+                closeQuietly(socket);
+                last = (e instanceof IOException) ? (IOException) e : new IOException(e);
             }
-            socket.setTcpNoDelay(noDelay);
-            socket.connect(address, CONNECT_TIMEOUT_MS);
-        } catch (IOException | RuntimeException e) {
-            socket.close();
-            throw e;
         }
-        return socket;
+        throw last != null ? last : new IOException("no network");
     }
 
     private static void closeQuietly(Socket socket) {
