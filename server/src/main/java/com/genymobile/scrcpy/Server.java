@@ -53,6 +53,9 @@ public final class Server {
     }
 
     private static class Completion {
+        // The looper of the session's own thread: a processor of one session must never
+        // quit the looper of the next one, which is what the main looper may be by then
+        private final Looper looper = Looper.myLooper();
         private int running;
         private boolean fatalError;
 
@@ -66,7 +69,7 @@ public final class Server {
                 this.fatalError = true;
             }
             if (running == 0 || this.fatalError) {
-                Looper.getMainLooper().quitSafely();
+                looper.quitSafely();
             }
         }
     }

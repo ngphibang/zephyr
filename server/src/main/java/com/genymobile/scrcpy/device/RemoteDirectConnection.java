@@ -172,15 +172,31 @@ public final class RemoteDirectConnection implements Connection {
         return controlChannel;
     }
 
-    private static void shutdown(Socket socket) throws IOException {
-        if (socket != null && !socket.isClosed()) {
+    /**
+     * Unblock the threads reading or writing a socket.
+     *
+     * A socket the host reset or timed out is no longer connected and refuses to be shut down,
+     * which is no failure here: its threads are already failing out of their reads and
+     * writes, and the socket closes with the connection.
+     */
+    private static void shutdown(Socket socket) {
+        if (socket == null || socket.isClosed()) {
+            return;
+        }
+        try {
             socket.shutdownInput();
+        } catch (IOException e) {
+            // already disconnected
+        }
+        try {
             socket.shutdownOutput();
+        } catch (IOException e) {
+            // already disconnected
         }
     }
 
     @Override
-    public void shutdown() throws IOException {
+    public void shutdown() {
         shutdown(videoSocket);
         shutdown(audioSocket);
         shutdown(controlSocket);
