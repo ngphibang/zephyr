@@ -27,6 +27,7 @@ public final class AudioPlaybackCapture implements AudioCapture {
     // another would otherwise leave a mix per session, and a stale mix with no output that
     // still matches a track is picked before the live one, leaving the track on the device
     private Object audioPolicy;
+    private VolumeFollower volume;
 
     public AudioPlaybackCapture(boolean keepPlayingOnDevice) {
         this.keepPlayingOnDevice = keepPlayingOnDevice;
@@ -141,6 +142,7 @@ public final class AudioPlaybackCapture implements AudioCapture {
         recorder = createAudioRecord();
         recorder.startRecording();
         reader = new AudioRecordReader(recorder);
+        volume = new VolumeFollower(FakeContext.get().getSystemService(AudioManager.class));
     }
 
     @Override
@@ -171,6 +173,10 @@ public final class AudioPlaybackCapture implements AudioCapture {
     @Override
     @TargetApi(AndroidVersions.API_24_ANDROID_7_0)
     public int read(ByteBuffer outDirectBuffer, MediaCodec.BufferInfo outBufferInfo) {
-        return reader.read(outDirectBuffer, outBufferInfo);
+        int r = reader.read(outDirectBuffer, outBufferInfo);
+        if (r > 0) {
+            volume.apply(outDirectBuffer, r);
+        }
+        return r;
     }
 }
