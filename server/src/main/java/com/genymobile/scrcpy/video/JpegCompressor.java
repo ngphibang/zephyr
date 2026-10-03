@@ -45,6 +45,10 @@ public class JpegCompressor implements AsyncProcessor {
 
     private static final int DEFAULT_QUALITY = 80;
     private static final int RESET_POLL_MS = 5;
+    // The capture only delivers a frame when the screen changes; a still screen would leave
+    // the receiver with nothing new to show or draw on, so the last frame is repeated at this
+    // period while nothing changes
+    private static final long REPEAT_MS = 500;
 
     private final SurfaceCapture capture;
     private final Streamer streamer;
@@ -66,6 +70,12 @@ public class JpegCompressor implements AsyncProcessor {
     private final ByteArrayOutputStream jpeg = new ByteArrayOutputStream(256 * 1024);
     private long lastFrameMs;
     private IOException streamError;
+
+    // The last frame sent, repeated while the screen is still; touched on the image thread only
+    private byte[] lastJpeg;
+    private long lastSentMs;
+    private Handler imageHandler;
+    private final Runnable repeater = this::repeatLastFrame;
 
     public JpegCompressor(SurfaceCapture capture, Streamer streamer, Options options) {
         this.capture = capture;
@@ -155,7 +165,9 @@ public class JpegCompressor implements AsyncProcessor {
             bitmap.compress(Bitmap.CompressFormat.JPEG, quality, jpeg);
 
             long ptsUs = image.getTimestamp() / 1000;
-            streamer.writePacket(ByteBuffer.wrap(jpeg.toByteArray()), ptsUs, false, true);
+            lastJpeg = jpeg.toByteArray();
+            lastSentMs = now;
+            streamer.writePacket(ByteBuffer.wrap(lastJpeg), ptsUs, false, true);
         } catch (IOException e) {
             // The stream is gone: end the capture, the error is reported from the capture thread
             streamError = e;
@@ -165,13 +177,33 @@ public class JpegCompressor implements AsyncProcessor {
         }
     }
 
+    /* Runs on the image thread every REPEAT_MS: send the last frame again if nothing newer went out */
+    private void repeatLastFrame() {
+        if (stopped.get() || streamError != null) {
+            return;
+        }
+
+        long now = SystemClock.uptimeMillis();
+        if (lastJpeg != null && now - lastSentMs >= REPEAT_MS) {
+            try {
+                streamer.writePacket(ByteBuffer.wrap(lastJpeg), now * 1000, false, true);
+                lastSentMs = now;
+            } catch (IOException e) {
+                streamError = e;
+                stop();
+                return;
+            }
+        }
+        imageHandler.postDelayed(repeater, REPEAT_MS);
+    }
+
     private void streamCapture() throws IOException, ConfigurationException {
         // No encoder constrains the size here, so no alignment either
         capture.init(captureControl, new VideoConstraints(maxSize, 1, null));
 
         imageThread = new HandlerThread("JpegCompressor");
         imageThread.start();
-        Handler imageHandler = new Handler(imageThread.getLooper());
+        imageHandler = new Handler(imageThread.getLooper());
 
         try {
             streamer.writeVideoHeader();
@@ -194,6 +226,7 @@ public class JpegCompressor implements AsyncProcessor {
                 Surface surface = reader.getSurface();
                 try {
                     capture.start(surface);
+                    imageHandler.postDelayed(repeater, REPEAT_MS);
 
                     // Capture until the display changes (a reset) or the stream stops
                     while (!captureControl.isResetRequested() && !stopped.get()) {
@@ -202,6 +235,7 @@ public class JpegCompressor implements AsyncProcessor {
                     alive = !stopped.get() && !capture.isClosed();
                 } finally {
                     capture.stop();
+                    imageHandler.removeCallbacks(repeater);
                     // Wait for a frame in flight, then make sure no later one is taken
                     synchronized (readerLock) {
                         currentReader = null;
