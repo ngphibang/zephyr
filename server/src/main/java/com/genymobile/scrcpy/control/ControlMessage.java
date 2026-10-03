@@ -36,6 +36,8 @@ public final class ControlMessage {
     public static final int TYPE_SET_MIC_MODE = 101;
     // What to send on the audio stream: one byte, a SwitchableAudioRecorder.SOURCE_* value
     public static final int TYPE_SET_AUDIO_SOURCE = 102;
+    // Exit for good instead of reconnecting to the host; carries nothing
+    public static final int TYPE_QUIT = 103;
 
     public static final long SEQUENCE_INVALID = 0;
 

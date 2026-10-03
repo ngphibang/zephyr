@@ -71,6 +71,9 @@ public final class Server {
         }
     }
 
+    // Set when the remote host asks the server to exit instead of reconnecting
+    private static volatile boolean quitRequested;
+
     private Server() {
         // not instantiable
     }
@@ -123,6 +126,13 @@ public final class Server {
             if (control) {
                 ControlChannel controlChannel = connection.getControlChannel();
                 controller = new Controller(controlChannel, cleanUp, options);
+                if (options.getRemoteHost() != null) {
+                    // End this session and the loop around it
+                    controller.setQuitListener(() -> {
+                        quitRequested = true;
+                        Looper.getMainLooper().quitSafely();
+                    });
+                }
                 asyncProcessors.add(controller);
             }
 
@@ -255,6 +265,10 @@ public final class Server {
             }
             if (fatal[0]) {
                 Ln.e("Session ended on a fatal error, exiting");
+                return;
+            }
+            if (quitRequested) {
+                Ln.i("Exiting as the host asked");
                 return;
             }
             if (failure[0] != null) {

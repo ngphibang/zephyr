@@ -120,6 +120,9 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
     // Feeds the audio stream; the client chooses what it carries
     private SwitchableAudioRecorder audioRecorder;
 
+    // Called when the client asks the server to exit for good
+    private Runnable quitListener;
+
     public Controller(ControlChannel controlChannel, CleanUp cleanUp, Options options) {
         this.camera = options.getVideoSource() == VideoSource.CAMERA;
         this.controlChannel = controlChannel;
@@ -193,6 +196,10 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
 
     public void setAudioRecorder(SwitchableAudioRecorder audioRecorder) {
         this.audioRecorder = audioRecorder;
+    }
+
+    public void setQuitListener(Runnable quitListener) {
+        this.quitListener = quitListener;
     }
 
     private UhidManager getUhidManager() {
@@ -360,6 +367,12 @@ public class Controller implements AsyncProcessor, VirtualDisplayListener {
             case ControlMessage.TYPE_SET_AUDIO_SOURCE:
                 if (audioRecorder != null) {
                     audioRecorder.setSource(msg.getAudioSource());
+                }
+                return true;
+            case ControlMessage.TYPE_QUIT:
+                Ln.i("Quit requested by the host");
+                if (quitListener != null) {
+                    quitListener.run();
                 }
                 return true;
             case ControlMessage.TYPE_RESET_VIDEO:
