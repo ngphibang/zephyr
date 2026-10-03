@@ -16,6 +16,9 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -38,6 +41,17 @@ public final class RemoteDirectConnection implements Connection {
     private static final int DEVICE_NAME_FIELD_LENGTH = 64;
     private static final int CONNECT_TIMEOUT_MS = 3000;
     private static final int RETRY_DELAY_MS = 1000;
+
+    // Linux socket options the Java API does not expose; a Wi-Fi drop closes nothing by itself,
+    // so a silent host is probed and unacknowledged data gives up after this long
+    private static final int TCP_KEEPIDLE = 4;
+    private static final int TCP_KEEPINTVL = 5;
+    private static final int TCP_KEEPCNT = 6;
+    private static final int TCP_USER_TIMEOUT = 18;
+    private static final int KEEPALIVE_IDLE_S = 5;
+    private static final int KEEPALIVE_INTERVAL_S = 5;
+    private static final int KEEPALIVE_COUNT = 3;
+    private static final int USER_TIMEOUT_MS = 15000;
 
     private final Socket videoSocket;
     private final Socket audioSocket;
@@ -90,6 +104,7 @@ public final class RemoteDirectConnection implements Connection {
                 }
                 socket.setTcpNoDelay(noDelay);
                 socket.connect(address, CONNECT_TIMEOUT_MS);
+                detectDeadPeer(socket);
                 return socket;
             } catch (IOException | RuntimeException e) {
                 closeQuietly(socket);
@@ -97,6 +112,22 @@ public final class RemoteDirectConnection implements Connection {
             }
         }
         throw last != null ? last : new IOException("no network");
+    }
+
+    /* Fail the socket within seconds once the host stops answering */
+    private static void detectDeadPeer(Socket socket) {
+        try {
+            socket.setKeepAlive(true);
+            try (ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(socket)) {
+                FileDescriptor fd = pfd.getFileDescriptor();
+                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPIDLE, KEEPALIVE_IDLE_S);
+                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPINTVL, KEEPALIVE_INTERVAL_S);
+                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_KEEPCNT, KEEPALIVE_COUNT);
+                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, TCP_USER_TIMEOUT, USER_TIMEOUT_MS);
+            }
+        } catch (IOException | ErrnoException | RuntimeException e) {
+            Ln.w("Could not set the socket's dead peer detection", e);
+        }
     }
 
     private static void closeQuietly(Socket socket) {
