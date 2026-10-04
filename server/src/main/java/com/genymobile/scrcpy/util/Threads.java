@@ -17,7 +17,7 @@ public final class Threads {
         T[] resultRef = (T[]) new Object[1];
         Throwable[] throwableRef = new Throwable[1];
 
-        handler.post(() -> {
+        boolean posted = handler.post(() -> {
             try {
                 resultRef[0] = callable.call();
             } catch (Throwable throwable) {
@@ -26,6 +26,10 @@ public final class Threads {
                 sem.release();
             }
         });
+        if (!posted) {
+            // The handler's looper has quit: fail instead of waiting for a release that never comes
+            throw new IllegalStateException("Handler thread is gone");
+        }
 
         try {
             sem.acquire();

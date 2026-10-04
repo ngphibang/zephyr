@@ -58,6 +58,11 @@ public final class OpenGLRunner {
         HandlerThread thread;
         synchronized (OpenGLRunner.class) {
             thread = handlerThread;
+            // Forget the thread, so that a later start() creates a new one: a server that
+            // serves several sessions shuts the runner down after each, and a post to the
+            // quit looper would be dropped and its caller left waiting for ever
+            handlerThread = null;
+            handler = null;
         }
         if (thread != null) {
             thread.quitSafely();
