@@ -53,7 +53,7 @@ public final class RemoteDirectConnection implements Connection {
     private static final int KEEPALIVE_COUNT = 3;
     private static final int USER_TIMEOUT_MS = 15000;
     // After this many failed attempts the device is asked to join the host's network again
-    private static final int STEER_EVERY_ATTEMPTS = 8;
+    private static final int STEER_EVERY_ATTEMPTS = 3;
 
     private final Socket videoSocket;
     private final Socket audioSocket;
