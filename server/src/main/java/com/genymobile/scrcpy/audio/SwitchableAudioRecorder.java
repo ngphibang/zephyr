@@ -36,7 +36,9 @@ public final class SwitchableAudioRecorder implements AsyncProcessor {
 
     public SwitchableAudioRecorder(AudioSource initialSource, boolean audioDup, Streamer streamer) {
         this.source = initialSource;
-        this.playbackSource = initialSource.isDirect() && initialSource != AudioSource.OUTPUT ? AudioSource.OUTPUT : initialSource;
+        // "playback" is the policy mix unless the server was launched with the submix route;
+        // a launch with a microphone source gets the mix too, not the route
+        this.playbackSource = initialSource == AudioSource.OUTPUT ? AudioSource.OUTPUT : AudioSource.PLAYBACK;
         this.audioDup = audioDup;
         this.streamer = streamer;
     }
