@@ -54,6 +54,10 @@ public final class RemoteDirectConnection implements Connection {
     private static final int USER_TIMEOUT_MS = 15000;
     // After this many failed attempts the device is asked to join the host's network again
     private static final int STEER_EVERY_ATTEMPTS = 3;
+    // Never ask twice within this time: asking again while the device is settling only
+    // disconnects it once more
+    private static final long STEER_MIN_INTERVAL_MS = 60_000;
+    private static long lastSteerMs;
 
     private final Socket videoSocket;
     private final Socket audioSocket;
@@ -156,6 +160,48 @@ public final class RemoteDirectConnection implements Connection {
      * The server runs as the shell user and may use the Wi-Fi shell command to steer the device
      * back, as a user would from the settings.
      */
+    /** The SSID the device is connected to, or null (parsed from the Wi-Fi shell command). */
+    private static String currentWifiSsid() {
+        try {
+            Process process = new ProcessBuilder("cmd", "wifi", "status").redirectErrorStream(true).start();
+            String out = IO.toString(process.getInputStream());
+            process.waitFor();
+            int start = out.indexOf("Wifi is connected to \"");
+            if (start < 0) {
+                return null;
+            }
+            start += "Wifi is connected to \"".length();
+            int end = out.indexOf('"', start);
+            return end > start ? out.substring(start, end) : null;
+        } catch (IOException | RuntimeException e) {
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    /**
+     * Ask the device to join the host's network, unless it is on it already or was asked a
+     * moment ago. A device that is on the network and still cannot reach the host has a host
+     * problem, and asking it to join again would only drop its connection: Android leaves a
+     * network it has marked as having no internet within seconds of being pushed onto it,
+     * and the push and the leaving would alternate for ever.
+     */
+    private static void steerWifi(String ssid, String psk) {
+        String current = currentWifiSsid();
+        if (ssid.equals(current)) {
+            Ln.i("On Wi-Fi network " + ssid + ", the host does not answer yet");
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        if (lastSteerMs != 0 && now - lastSteerMs < STEER_MIN_INTERVAL_MS) {
+            return;
+        }
+        lastSteerMs = now;
+        joinWifi(ssid, psk);
+    }
+
     private static void joinWifi(String ssid, String psk) {
         try {
             String[] cmd = (psk != null && !psk.isEmpty())
@@ -220,7 +266,7 @@ public final class RemoteDirectConnection implements Connection {
                 Ln.i("Connection to " + address + " failed (" + e.getMessage() + "), retrying");
                 attempts++;
                 if (wifiSsid != null && attempts % STEER_EVERY_ATTEMPTS == 0) {
-                    joinWifi(wifiSsid, wifiPsk);
+                    steerWifi(wifiSsid, wifiPsk);
                 }
                 SystemClock.sleep(RETRY_DELAY_MS);
             }
