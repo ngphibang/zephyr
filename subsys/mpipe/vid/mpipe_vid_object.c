@@ -427,7 +427,7 @@ int mpipe_vid_object_set_caps(struct mpipe_vid_object *vid_obj, const struct mpi
 {
 	__ASSERT_NO_MSG(vid_obj != NULL);
 
-	struct video_format fmt;
+	struct video_format fmt = {0};
 	const struct mpipe_value *frmival_us;
 
 	if (caps == NULL || !mpipe_structure_is_fixed(caps)) {

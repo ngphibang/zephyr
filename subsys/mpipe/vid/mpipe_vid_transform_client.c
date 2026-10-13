@@ -59,7 +59,7 @@ static int mpipe_vid_transform_client_set_caps(struct mpipe_transform *transform
 {
 	struct mpipe_vid_transform_client *vtc = (struct mpipe_vid_transform_client *)transform;
 	struct mpipe_buffer_pool *pool = NULL;
-	struct video_format fmt;
+	struct video_format fmt = {0};
 	enum video_buf_type type;
 	int ret;
 
