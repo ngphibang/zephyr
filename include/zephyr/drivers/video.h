@@ -305,7 +305,8 @@ __subsystem struct video_driver_api {
 /**
  * @brief Set video format of a driver.
  *
- * Configure video device with a specific format.
+ * Configure video device with a specific format. A driver that exchanges buffers
+ * with the application fills the pitch and size of @p fmt on success.
  *
  * @param dev Pointer to the device structure for the driver instance.
  * @param fmt Pointer to a video format struct.
@@ -328,7 +329,8 @@ static inline int video_driver_set_format(const struct device *dev, struct video
 /**
  * @brief Get video format of a driver.
  *
- * Get video device current video format.
+ * Get video device current video format. A driver that exchanges buffers with
+ * the application fills the pitch and size of @p fmt on success.
  *
  * @param dev Pointer to the device structure for the driver instance.
  * @param fmt Pointer to video format struct.

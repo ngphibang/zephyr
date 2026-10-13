@@ -446,7 +446,9 @@ int video_set_compose_format(const struct device *dev, struct video_format *fmt)
 /**
  * @brief Set video format.
  *
- * Configure video device with a specific format.
+ * Configure video device with a specific format. The caller sets the type, pixel
+ * format, width and height; a device that exchanges buffers with the application
+ * returns the pitch and size its buffers need.
  *
  * @param dev Pointer to the device structure for the driver instance.
  * @param fmt Pointer to a video format struct.
@@ -454,19 +456,22 @@ int video_set_compose_format(const struct device *dev, struct video_format *fmt)
  * @retval 0 If successful.
  * @retval -EINVAL If parameters are invalid.
  * @retval -ENOTSUP If format is not supported.
- * @retval -EIO General input / output error.
+ * @retval -EIO General input / output error, or the driver did not set the pitch or size.
  */
 int video_set_format(const struct device *dev, struct video_format *fmt);
 
 /**
  * @brief Get video format of a driver.
  *
- * Get video device current video format.
+ * Get video device current video format. A device that exchanges buffers with the
+ * application returns the pitch and size its buffers need.
  *
  * @param dev Pointer to the device structure for the driver instance.
  * @param fmt Pointer to video format struct.
  *
- * @retval pointer to video format
+ * @retval 0 If successful.
+ * @retval -EINVAL If parameters are invalid.
+ * @retval -EIO General input / output error, or the driver did not set the pitch or size.
  */
 int video_get_format(const struct device *dev, struct video_format *fmt);
 

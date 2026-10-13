@@ -112,6 +112,8 @@ struct video_format {
 	 * This is the number of bytes that needs to be added to the address in the
 	 * first pixel of a row in order to go to the address of the first pixel of
 	 * the next row (>=width).
+	 *
+	 * Set by the driver together with @ref size. It is 0 for compressed formats.
 	 */
 	uint32_t pitch;
 	/**
@@ -123,6 +125,10 @@ struct video_format {
 	 *
 	 * For compressed formats, this is the maximum number of bytes required to
 	 * hold a complete compressed frame, estimated for the worst case.
+	 *
+	 * A driver that exchanges buffers with the application (one implementing
+	 * enqueue) must set it: @ref video_set_format and @ref video_get_format
+	 * reject a format whose size it left at 0.
 	 */
 	uint32_t size;
 };

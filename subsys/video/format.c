@@ -27,22 +27,62 @@ int video_get_selection(const struct device *dev, struct video_selection *sel)
 	return video_driver_get_selection(dev, sel);
 }
 
+/*
+ * A driver that exchanges buffers with the application must tell it how large they are:
+ * pitch and size are its to fill, since only it knows the padding its hardware needs.
+ * Compressed formats have no pitch.
+ */
+static int check_fmt_size(const struct device *dev, const struct video_format *fmt)
+{
+	const struct video_driver_api *api = DEVICE_API_GET(video, dev);
+
+	if (api->enqueue == NULL) {
+		return 0;
+	}
+
+	if (fmt->size == 0) {
+		LOG_ERR("%s: driver did not set the format size", dev->name);
+		return -EIO;
+	}
+
+	if (fmt->pitch == 0 && video_bits_per_pixel(fmt->pixelformat) != 0) {
+		LOG_ERR("%s: driver did not set the format pitch", dev->name);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 int video_set_format(const struct device *dev, struct video_format *fmt)
 {
+	int ret;
+
 	if (dev == NULL || fmt == NULL) {
 		return -EINVAL;
 	}
 
-	return video_driver_set_format(dev, fmt);
+	ret = video_driver_set_format(dev, fmt);
+	if (ret != 0) {
+		return ret;
+	}
+
+	return check_fmt_size(dev, fmt);
 }
 
 int video_get_format(const struct device *dev, struct video_format *fmt)
 {
+	int ret;
+
 	if (dev == NULL || fmt == NULL) {
 		return -EINVAL;
 	}
 
-	return video_driver_get_format(dev, fmt);
+	ret = video_driver_get_format(dev, fmt);
+	if (ret != 0) {
+		return ret;
+	}
+
+	return check_fmt_size(dev, fmt);
 }
 
 int video_estimate_fmt_size(struct video_format *fmt)
