@@ -205,4 +205,79 @@ ZTEST(video_common, test_video_buffer_release_bad_index)
 	zassert_equal(ret, -EINVAL, "expecting -EINVAL for an out-of-range buffer index");
 }
 
+/*
+ * A device that exchanges buffers (it implements enqueue) must fill the pitch and size
+ * of the format it accepts or reports. This fake driver answers with whatever the test
+ * put in fake_fmt so that the subsystem check is exercised on both paths.
+ */
+static struct video_format fake_fmt;
+
+static int fake_set_fmt(const struct device *dev, struct video_format *fmt)
+{
+	*fmt = fake_fmt;
+	return 0;
+}
+
+static int fake_get_fmt(const struct device *dev, struct video_format *fmt)
+{
+	*fmt = fake_fmt;
+	return 0;
+}
+
+static int fake_enqueue(const struct device *dev, struct video_buffer *vbuf)
+{
+	return -ENOTSUP;
+}
+
+static int fake_dequeue(const struct device *dev, struct video_buffer **vbuf, k_timeout_t timeout)
+{
+	return -ENOTSUP;
+}
+
+static DEVICE_API(video, fake_video_api) = {
+	.set_format = fake_set_fmt,
+	.get_format = fake_get_fmt,
+	.enqueue = fake_enqueue,
+	.dequeue = fake_dequeue,
+};
+
+DEVICE_DEFINE(fake_video, "fake_video", NULL, NULL, NULL, NULL, POST_KERNEL,
+	      CONFIG_VIDEO_INIT_PRIORITY, &fake_video_api);
+
+ZTEST(video_common, test_video_format_size_contract)
+{
+	const struct device *dev = DEVICE_GET(fake_video);
+	struct video_format fmt;
+
+	/* Size left unset on an uncompressed format */
+	fake_fmt = (struct video_format){
+		.pixelformat = VIDEO_PIX_FMT_RGB565,
+		.width = 320,
+		.height = 240,
+		.pitch = 640,
+	};
+	zexpect_equal(video_set_format(dev, &fmt), -EIO, "size 0 must be rejected");
+	zexpect_equal(video_get_format(dev, &fmt), -EIO, "size 0 must be rejected");
+
+	/* Pitch left unset on an uncompressed format */
+	fake_fmt.pitch = 0;
+	fake_fmt.size = 640 * 240;
+	zexpect_equal(video_set_format(dev, &fmt), -EIO, "pitch 0 must be rejected");
+	zexpect_equal(video_get_format(dev, &fmt), -EIO, "pitch 0 must be rejected");
+
+	/* A compressed format has no pitch */
+	fake_fmt.pixelformat = VIDEO_PIX_FMT_JPEG;
+	zexpect_ok(video_set_format(dev, &fmt), "pitch 0 is valid for a compressed format");
+	zexpect_ok(video_get_format(dev, &fmt), "pitch 0 is valid for a compressed format");
+	zexpect_equal(fmt.size, 640 * 240);
+
+	/* Both set */
+	fake_fmt.pixelformat = VIDEO_PIX_FMT_RGB565;
+	fake_fmt.pitch = 640;
+	zexpect_ok(video_set_format(dev, &fmt));
+	zexpect_ok(video_get_format(dev, &fmt));
+	zexpect_equal(fmt.pitch, 640);
+	zexpect_equal(fmt.size, 640 * 240);
+}
+
 ZTEST_SUITE(video_common, NULL, NULL, NULL, NULL, NULL);
