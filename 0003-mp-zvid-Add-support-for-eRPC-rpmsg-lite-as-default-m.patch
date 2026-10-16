@@ -1,0 +1,382 @@
+From 0faa00db69252b15a1e4801ee37ea819c7413587 Mon Sep 17 00:00:00 2001
+From: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+Date: Wed, 1 Jul 2026 16:02:54 +0200
+Subject: [PATCH 3/4] mp: zvid: Add support for eRPC & rpmsg-lite as default
+ multicore backend
+
+Signed-off-by: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+---
+ .../zephyr/mp/zvid/mp_zvid_transform_client.h | 11 ++--
+ .../mp/zvid/mp_zvid_transform_client_erpc.h   | 34 +++++++++++
+ subsys/mp/plugins/zvid/CMakeLists.txt         | 35 ++++++++++++
+ subsys/mp/plugins/zvid/erpc/external.h        | 20 +++++++
+ .../plugins/zvid/erpc/mp_zvid_transform.erpc  | 48 ++++++++++++++++
+ .../plugins/zvid/mp_zvid_buffer_pool_client.c |  4 ++
+ .../plugins/zvid/mp_zvid_transform_client.c   | 12 ++--
+ .../zvid/mp_zvid_transform_client_erpc.c      | 57 +++++++++++++++++++
+ 8 files changed, 211 insertions(+), 10 deletions(-)
+ create mode 100644 include/zephyr/mp/zvid/mp_zvid_transform_client_erpc.h
+ create mode 100644 subsys/mp/plugins/zvid/erpc/external.h
+ create mode 100644 subsys/mp/plugins/zvid/erpc/mp_zvid_transform.erpc
+ create mode 100644 subsys/mp/plugins/zvid/mp_zvid_transform_client_erpc.c
+
+diff --git a/include/zephyr/mp/zvid/mp_zvid_transform_client.h b/include/zephyr/mp/zvid/mp_zvid_transform_client.h
+index 8baa8e25277..b44b0c019f2 100644
+--- a/include/zephyr/mp/zvid/mp_zvid_transform_client.h
++++ b/include/zephyr/mp/zvid/mp_zvid_transform_client.h
+@@ -8,7 +8,7 @@
+  * @file
+  * @brief Client-side video transform element for multi-core pipelines.
+  *
+- * Extends the generic transform client with video-specific RPC callbacks
++ * Extends the generic transform client with video-specific RPC functions
+  * to offload video processing to a remote core.
+  */
+ 
+@@ -26,7 +26,6 @@
+ 
+ #include <zephyr/mp/core/mp_pad.h>
+ #include <zephyr/mp/core/mp_transform_client.h>
+-
+ #include <zephyr/mp/zvid/mp_zvid_buffer_pool_client.h>
+ 
+ struct mp_element;
+@@ -46,7 +45,7 @@ struct mp_zvid_transform_client {
+ 	/** Output buffer pool */
+ 	struct mp_zvid_buffer_pool_client outpool;
+ 	/**
+-	 * @brief RPC callback to query buffer pool capabilities.
++	 * @brief RPC function to query buffer pool capabilities.
+ 	 *
+ 	 * @param direction    Pad direction (see @ref mp_pad_direction).
+ 	 * @param min_buffers  Output: minimum number of buffers required.
+@@ -57,7 +56,7 @@ struct mp_zvid_transform_client {
+ 	int32_t (*get_buf_caps_rpc)(enum mp_pad_direction direction, uint8_t *min_buffers,
+ 				    uint16_t *buf_align);
+ 	/**
+-	 * @brief RPC callback to enumerate video format capabilities.
++	 * @brief RPC function to enumerate video format capabilities.
+ 	 *
+ 	 * @param direction Pad direction (see @ref mp_pad_direction).
+ 	 * @param ind       Index to iterate through available capabilities.
+@@ -68,7 +67,7 @@ struct mp_zvid_transform_client {
+ 	int32_t (*get_format_caps_rpc)(enum mp_pad_direction direction, uint8_t ind,
+ 				       struct video_format_cap *vfc);
+ 	/**
+-	 * @brief RPC callback to set the video format.
++	 * @brief RPC function to set the video format.
+ 	 *
+ 	 * @param fmt Video format to apply; the server may update size and pitch.
+ 	 *
+@@ -76,7 +75,7 @@ struct mp_zvid_transform_client {
+ 	 */
+ 	int32_t (*set_format_rpc)(struct video_format *fmt);
+ 	/**
+-	 * @brief RPC callback to transform a capability to the opposite pad.
++	 * @brief RPC function to transform a capability to the opposite pad.
+ 	 *
+ 	 * @param direction Pad direction to transform from (see @ref mp_pad_direction).
+ 	 * @param ind       Index to iterate through transformed capabilities.
+diff --git a/include/zephyr/mp/zvid/mp_zvid_transform_client_erpc.h b/include/zephyr/mp/zvid/mp_zvid_transform_client_erpc.h
+new file mode 100644
+index 00000000000..6e9542f8424
+--- /dev/null
++++ b/include/zephyr/mp/zvid/mp_zvid_transform_client_erpc.h
+@@ -0,0 +1,34 @@
++
++/*
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/**
++ * @file
++ * @brief Main header for zvid transform client element which uses eRPC.
++ */
++
++#ifndef ZEPHYR_INCLUDE_MP_ZVID_MP_ZVID_TRANSFORM_CLIENT_ERPC_H_
++#define ZEPHYR_INCLUDE_MP_ZVID_MP_ZVID_TRANSFORM_CLIENT_ERPC_H_
++
++/**
++ * @defgroup mp_zvid_transform_clients Transform Clients
++ * @ingroup mp_zvid
++ * @brief Client-side video transform element using eRPC
++ * @{
++ */
++
++struct mp_element;
++
++/**
++ * @brief Initialize a video transform element on the client side using eRPC.
++ *
++ * @param self Pointer to the @ref mp_element to initialize as a video transform
++ */
++void mp_zvid_transform_client_erpc_init(struct mp_element *self);
++
++/** @} */
++
++#endif /* ZEPHYR_INCLUDE_MP_ZVID_MP_ZVID_TRANSFORM_CLIENT_ERPC_H_ */
+diff --git a/subsys/mp/plugins/zvid/CMakeLists.txt b/subsys/mp/plugins/zvid/CMakeLists.txt
+index bce9bf50a2d..d236f674c98 100644
+--- a/subsys/mp/plugins/zvid/CMakeLists.txt
++++ b/subsys/mp/plugins/zvid/CMakeLists.txt
+@@ -20,3 +20,38 @@ zephyr_library_sources_ifdef(CONFIG_MP_RPC
+     mp_zvid_buffer_pool_client.c
+     mp_zvid_transform_client.c
+ )
++
++if(CONFIG_MP_RPC_BACKEND_ERPC)
++    find_program(ERPCGEN erpcgen REQUIRED)
++    set(ERPC_DIR ${CMAKE_CURRENT_LIST_DIR}/erpc)
++    set(ERPC_GENERATED_DIR ${ZEPHYR_BINARY_DIR}/generated/erpc)
++    set(ERPC_GENERATED_FILES
++        ${ERPC_GENERATED_DIR}/mp_zvid_transform_common.h
++        ${ERPC_GENERATED_DIR}/c_mp_zvid_transform_client.h
++        ${ERPC_GENERATED_DIR}/c_mp_zvid_transform_client.cpp
++        ${ERPC_GENERATED_DIR}/mp_zvid_transform_client.cpp
++        ${ERPC_GENERATED_DIR}/mp_zvid_transform_interface.cpp
++    )
++    add_custom_command(
++        OUTPUT ${ERPC_GENERATED_FILES}
++        COMMAND
++        ${ERPCGEN} -v -g c -o ${ERPC_GENERATED_DIR} ${ERPC_DIR}/mp_zvid_transform.erpc
++        COMMAND
++        ${CMAKE_COMMAND} -E rm -f ${ERPC_GENERATED_DIR}/*server.cpp ${ERPC_GENERATED_DIR}/*server.h ${ERPC_GENERATED_DIR}/*server.hpp
++        DEPENDS
++        ${ERPC_DIR}/mp_zvid_transform.erpc
++        ${ERPC_DIR}/external.h
++    )
++    add_custom_target(generate_erpc_client DEPENDS ${ERPC_GENERATED_FILES})
++    add_dependencies(${ZEPHYR_CURRENT_LIBRARY} generate_erpc_client)
++    # The generated eRPC sources include "external.h", which is provided in the
++    # source erpc directory. Add it (and the generated directory) to the include
++    # path so the generated code can be compiled.
++    zephyr_library_include_directories(${ERPC_DIR} ${ERPC_GENERATED_DIR})
++    zephyr_library_sources(
++        mp_zvid_transform_client_erpc.c
++        ${ERPC_GENERATED_DIR}/c_mp_zvid_transform_client.cpp
++        ${ERPC_GENERATED_DIR}/mp_zvid_transform_client.cpp
++        ${ERPC_GENERATED_DIR}/mp_zvid_transform_interface.cpp
++    )
++endif()
+diff --git a/subsys/mp/plugins/zvid/erpc/external.h b/subsys/mp/plugins/zvid/erpc/external.h
+new file mode 100644
+index 00000000000..cd33007003a
+--- /dev/null
++++ b/subsys/mp/plugins/zvid/erpc/external.h
+@@ -0,0 +1,20 @@
++/*
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef __EMBEDDED_RPC_EXTERNAL_H__
++#define __EMBEDDED_RPC_EXTERNAL_H__
++
++#include <zephyr/drivers/video.h>
++
++#include <zephyr/mp/core/mp_pad.h>
++
++/* typedef for @external has to be done manually as it is not automatically generated by erpcgen */
++typedef struct video_format video_format;
++typedef struct video_format_cap video_format_cap;
++typedef enum mp_pad_direction mp_pad_direction;
++typedef enum video_buf_type video_buf_type;
++
++#endif /* __EMBEDDED_RPC_EXTERNAL_H__ */
+diff --git a/subsys/mp/plugins/zvid/erpc/mp_zvid_transform.erpc b/subsys/mp/plugins/zvid/erpc/mp_zvid_transform.erpc
+new file mode 100644
+index 00000000000..c5b00274e4a
+--- /dev/null
++++ b/subsys/mp/plugins/zvid/erpc/mp_zvid_transform.erpc
+@@ -0,0 +1,48 @@
++/*!
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++@c: include("external.h")
++
++program mp_zvid_transform
++
++@external enum video_buf_type {
++	VIDEO_BUF_TYPE_INPUT = 1,
++	VIDEO_BUF_TYPE_OUTPUT = 2
++}
++
++@external struct video_format {
++	video_buf_type queue_type @name("type"); /* IDL uses queue_type, C uses type */
++	uint32 pixelformat;
++	uint32 width;
++	uint32 height;
++	uint32 pitch;
++	uint32 size;
++}
++
++@external struct video_format_cap {
++	uint32 pixelformat;
++	uint32 width_min;
++	uint32 width_max;
++	uint32 height_min;
++	uint32 height_max;
++	uint16 width_step;
++	uint16 height_step;
++}
++
++@external enum mp_pad_direction {
++	MP_PAD_UNKNOWN = 0,
++	MP_PAD_SRC = 1,
++	MP_PAD_SINK = 2
++}
++
++interface MPService
++{
++	get_buf_caps_rpc(in mp_pad_direction direction, out uint8 min_buffers, out uint16 buf_align) -> int32
++	get_format_caps_rpc(in mp_pad_direction direction, in uint8 ind, out video_format_cap vfc) -> int32
++	set_format_rpc(inout video_format fmt) -> int32
++	transform_cap_rpc(in mp_pad_direction direction, in uint16 ind, in video_format_cap vfc, out video_format_cap other_vfc) -> int32
++	chainfn_rpc(in uint32 in_buf, in uint32 in_sz, in uint32 out_buf, out uint32 out_sz) -> int32
++}
+diff --git a/subsys/mp/plugins/zvid/mp_zvid_buffer_pool_client.c b/subsys/mp/plugins/zvid/mp_zvid_buffer_pool_client.c
+index e2f097c8439..746581c4073 100644
+--- a/subsys/mp/plugins/zvid/mp_zvid_buffer_pool_client.c
++++ b/subsys/mp/plugins/zvid/mp_zvid_buffer_pool_client.c
+@@ -49,12 +49,14 @@ static int mp_zvid_buffer_pool_client_start(struct mp_buffer_pool *pool)
+ 	}
+ 
+ 	LOG_INF("Started buffer pool");
++
+ 	return 0;
+ }
+ 
+ static int mp_zvid_buffer_pool_client_stop(struct mp_buffer_pool *pool)
+ {
+ 	ARG_UNUSED(pool);
++
+ 	return 0;
+ }
+ 
+@@ -74,6 +76,7 @@ static int mp_zvid_buffer_pool_client_acquire_buffer(struct mp_buffer_pool *pool
+ 	}
+ 
+ 	*buf = nb;
++
+ 	return 0;
+ }
+ 
+@@ -97,6 +100,7 @@ static int mp_zvid_buffer_pool_client_release_buffer(struct mp_buffer_pool *pool
+ 	}
+ 
+ 	k_fifo_put(&zbpc->fifo, buf);
++
+ 	return 0;
+ }
+ 
+diff --git a/subsys/mp/plugins/zvid/mp_zvid_transform_client.c b/subsys/mp/plugins/zvid/mp_zvid_transform_client.c
+index 60c51635665..1f4774e14d7 100644
+--- a/subsys/mp/plugins/zvid/mp_zvid_transform_client.c
++++ b/subsys/mp/plugins/zvid/mp_zvid_transform_client.c
+@@ -14,7 +14,7 @@
+ 
+ LOG_MODULE_REGISTER(mp_zvid_transform_client, CONFIG_MP_LOG_LEVEL);
+ 
+-static struct mp_caps *mp_zvid_transform_client_get_caps(struct mp_transform *transform,
++static struct mp_caps *mp_zvid_transform_client_supported_caps(struct mp_transform *transform,
+ 							 enum mp_pad_direction direction)
+ {
+ 	struct mp_zvid_transform_client *vtc = (struct mp_zvid_transform_client *)transform;
+@@ -146,6 +146,8 @@ void mp_zvid_transform_client_init(struct mp_element *self)
+ {
+ 	struct mp_transform *transform = (struct mp_transform *)self;
+ 	struct mp_zvid_transform_client *vtc = (struct mp_zvid_transform_client *)transform;
++	struct mp_caps *sink_caps = mp_zvid_transform_client_supported_caps(transform, MP_PAD_SINK);
++	struct mp_caps *src_caps = mp_zvid_transform_client_supported_caps(transform, MP_PAD_SRC);
+ 
+ 	/* Init base class */
+ 	mp_transform_client_init(self);
+@@ -157,11 +159,13 @@ void mp_zvid_transform_client_init(struct mp_element *self)
+ 	transform->inpool = &vtc->inpool.pool;
+ 	transform->outpool = &vtc->outpool.pool;
+ 
+-	transform->sinkpad.caps = mp_zvid_transform_client_get_caps(transform, MP_PAD_SINK);
+-	transform->srcpad.caps = mp_zvid_transform_client_get_caps(transform, MP_PAD_SRC);
+-	transform->get_caps = mp_zvid_transform_client_get_caps;
++	mp_transform_update_caps(transform, sink_caps, src_caps);
++	mp_caps_unref(sink_caps);
++	mp_caps_unref(src_caps);
++
+ 	transform->set_caps = mp_zvid_transform_client_set_caps;
+ 	transform->transform_caps = mp_zvid_transform_client_transform_caps;
++
+ 	/* Initialize buffer pools */
+ 	mp_zvid_buffer_pool_client_init(transform->inpool);
+ 	mp_zvid_buffer_pool_client_init(transform->outpool);
+diff --git a/subsys/mp/plugins/zvid/mp_zvid_transform_client_erpc.c b/subsys/mp/plugins/zvid/mp_zvid_transform_client_erpc.c
+new file mode 100644
+index 00000000000..cff8d6d37f9
+--- /dev/null
++++ b/subsys/mp/plugins/zvid/mp_zvid_transform_client_erpc.c
+@@ -0,0 +1,57 @@
++
++/*
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#include <zephyr/logging/log.h>
++
++#include <zephyr/mp/core/mp_transform_client.h>
++#include <zephyr/mp/core/rpc/erpc/erpc_error_handler.h>
++#include <zephyr/mp/zvid/mp_zvid_transform_client.h>
++#include <zephyr/mp/zvid/mp_zvid_transform_client_erpc.h>
++
++#include "erpc_client_setup.h"
++#include "c_mp_zvid_transform_client.h"
++#include "mp_zvid_transform_common.h"
++
++/* Delay needed for the remote to be able to reset */
++#define ERPC_INIT_DELAY_MS (300U)
++
++LOG_MODULE_REGISTER(mp_zvid_transform_client_erpc, CONFIG_MP_LOG_LEVEL);
++
++static int init_erpc(void)
++{
++	erpc_transport_t transport = erpc_transport_zephyr_ipc_master_init(
++		CONFIG_ERPC_ENDPOINT_NAME, ERPC_INIT_DELAY_MS);
++
++	if (transport == NULL) {
++		printk("ERROR: Failed to initialize eRPC transport\r\n");
++		return -EIO;
++	}
++
++	erpc_mbf_t message_buffer_factory = erpc_mbf_ipc_service_init(transport);
++	erpc_client_t client = erpc_client_init(transport, message_buffer_factory);
++
++	initMPService_client(client);
++	erpc_client_set_error_handler(client, erpc_error_handler);
++
++	return 0;
++}
++
++void mp_zvid_transform_client_erpc_init(struct mp_element *self)
++{
++	struct mp_transform_client *tc = (struct mp_transform_client *)self;
++	struct mp_zvid_transform_client *vtc = (struct mp_zvid_transform_client *)self;
++
++	tc->init_rpc = init_erpc;
++	tc->chainfn_rpc = chainfn_rpc;
++
++	vtc->get_buf_caps_rpc = get_buf_caps_rpc;
++	vtc->get_format_caps_rpc = get_format_caps_rpc;
++	vtc->set_format_rpc = set_format_rpc;
++	vtc->transform_cap_rpc = transform_cap_rpc;
++
++	mp_zvid_transform_client_init(self);
++}
+-- 
+2.34.1
+

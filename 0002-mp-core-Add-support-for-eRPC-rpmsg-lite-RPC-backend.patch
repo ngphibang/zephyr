@@ -1,0 +1,195 @@
+From 720629baec8678199e7f014efc7c0f1e36249f80 Mon Sep 17 00:00:00 2001
+From: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+Date: Tue, 30 Jun 2026 22:49:40 +0200
+Subject: [PATCH 2/4] mp: core: Add support for eRPC & rpmsg-lite RPC backend
+
+Signed-off-by: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+---
+ .../mp/core/rpc/erpc/erpc_error_handler.h     | 42 +++++++++
+ subsys/mp/core/CMakeLists.txt                 |  5 +
+ subsys/mp/core/Kconfig                        |  7 ++
+ subsys/mp/core/rpc/erpc/erpc_error_handler.c  | 94 +++++++++++++++++++
+ 4 files changed, 148 insertions(+)
+ create mode 100644 include/zephyr/mp/core/rpc/erpc/erpc_error_handler.h
+ create mode 100644 subsys/mp/core/rpc/erpc/erpc_error_handler.c
+
+diff --git a/include/zephyr/mp/core/rpc/erpc/erpc_error_handler.h b/include/zephyr/mp/core/rpc/erpc/erpc_error_handler.h
+new file mode 100644
+index 00000000000..2edb1c8bc7e
+--- /dev/null
++++ b/include/zephyr/mp/core/rpc/erpc/erpc_error_handler.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef _EMBEDDED_RPC__ERROR_HANDLER_H_
++#define _EMBEDDED_RPC__ERROR_HANDLER_H_
++
++#include <stdint.h>
++
++#include "erpc_common.h"
++
++/**
++ * @file
++ * @brief eRPC error handler file.
++ *
++ * @{
++ */
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * Handles eRPC errors
++ *
++ * This function prints a description of occurred error and sets bool variable g_erpc_error_occurred
++ * which is used for determining if error occurred in user application on client side.
++ *
++ * @param err The eRPC error status code to handle
++ * @param functionID The function ID where the error occurred on the client side
++ */
++void erpc_error_handler(erpc_status_t err, uint32_t functionID);
++
++#ifdef __cplusplus
++}
++#endif
++
++/** @} */
++
++#endif /* _EMBEDDED_RPC__ERROR_HANDLER_H_ */
+diff --git a/subsys/mp/core/CMakeLists.txt b/subsys/mp/core/CMakeLists.txt
+index 1ea37a3a901..c32712d8482 100644
+--- a/subsys/mp/core/CMakeLists.txt
++++ b/subsys/mp/core/CMakeLists.txt
+@@ -22,4 +22,9 @@ foreach(ELEMENT_CONFIG ${BUILTIN_ELEMENTS})
+     endif()
+ endforeach()
+ 
++if(CONFIG_MP_RPC_BACKEND_ERPC)
++    file(GLOB ERPC_SOURCE_FILES rpc/erpc/*.c)
++    list(APPEND MP_CORE_SOURCE_FILES ${ERPC_SOURCE_FILES})
++endif()
++
+ zephyr_library_sources(${MP_CORE_SOURCE_FILES})
+diff --git a/subsys/mp/core/Kconfig b/subsys/mp/core/Kconfig
+index 6f44a5b5d4c..ef764e7efc3 100644
+--- a/subsys/mp/core/Kconfig
++++ b/subsys/mp/core/Kconfig
+@@ -78,3 +78,10 @@ config MP_BUS_QUEUE_DEPTH
+ 
+ config MP_RPC
+ 	bool "RPC support"
++	imply MP_RPC_BACKEND_ERPC
++
++config MP_RPC_BACKEND_ERPC
++    bool "ERPC backend for RPC"
++    depends on MP_RPC
++	select ERPC
++	imply ERPC_TRANSPORT_IPC_SERVICE
+diff --git a/subsys/mp/core/rpc/erpc/erpc_error_handler.c b/subsys/mp/core/rpc/erpc/erpc_error_handler.c
+new file mode 100644
+index 00000000000..b7b4e2ef9e6
+--- /dev/null
++++ b/subsys/mp/core/rpc/erpc/erpc_error_handler.c
+@@ -0,0 +1,94 @@
++/*
++ * Copyright 2026 NXP
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#include <zephyr/kernel.h>
++
++#include <zephyr/mp/core/rpc/erpc/erpc_error_handler.h>
++
++bool g_erpc_error_occurred = false;
++
++void erpc_error_handler(erpc_status_t err, uint32_t functionID)
++{
++	switch (err) {
++	case kErpcStatus_Fail:
++		printk("\r\nGeneric failure.");
++		break;
++
++	case kErpcStatus_InvalidArgument:
++		printk("\r\nArgument is an invalid value.");
++		break;
++
++	case kErpcStatus_Timeout:
++		printk("\r\nOperated timed out.");
++		break;
++
++	case kErpcStatus_InvalidMessageVersion:
++		printk("\r\nMessage header contains an unknown version.");
++		break;
++
++	case kErpcStatus_ExpectedReply:
++		printk("\r\nExpected a reply message but got another message type.");
++		break;
++
++	case kErpcStatus_CrcCheckFailed:
++		printk("\r\nMessage is corrupted.");
++		break;
++
++	case kErpcStatus_BufferOverrun:
++		printk("\r\nAttempt to read or write past the end of a buffer.");
++		break;
++
++	case kErpcStatus_UnknownName:
++		printk("\r\nCould not find host with given name.");
++		break;
++
++	case kErpcStatus_ConnectionFailure:
++		printk("\r\nFailed to connect to host.");
++		break;
++
++	case kErpcStatus_ConnectionClosed:
++		printk("\r\nConnected closed by peer.");
++		break;
++
++	case kErpcStatus_MemoryError:
++		printk("\r\nMemory allocation error.");
++		break;
++
++	case kErpcStatus_ServerIsDown:
++		printk("\r\nServer is stopped.");
++		break;
++
++	case kErpcStatus_InitFailed:
++		printk("\r\nTransport layer initialization failed.");
++		break;
++
++	case kErpcStatus_ReceiveFailed:
++		printk("\r\nFailed to receive data.");
++		break;
++
++	case kErpcStatus_SendFailed:
++		printk("\r\nFailed to send data.");
++		break;
++
++	/* no error occurred */
++	case kErpcStatus_Success:
++		return;
++
++	/* unhandled error */
++	default:
++		printk("\r\nUnhandled error occurred.");
++		break;
++	}
++
++	/* When error occurred on client side. */
++	if (functionID != 0) {
++		printk("Function id '%u'.", (unsigned int)functionID);
++	}
++	printk("\r\n");
++
++	/* error occurred */
++	g_erpc_error_occurred = true;
++}
+-- 
+2.34.1
+

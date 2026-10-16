@@ -1,0 +1,28 @@
+From 7491da5472efdbfa994a1da3cd1d06db36a2a7fc Mon Sep 17 00:00:00 2001
+From: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+Date: Wed, 28 Jan 2026 16:42:42 +0100
+Subject: [PATCH 1/4] [DNM]west: Add erpc repo
+
+Signed-off-by: Phi Bang Nguyen <phibang.nguyen@nxp.com>
+---
+ west.yml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/west.yml b/west.yml
+index 0c9c66ff43c..b32b20b9a7f 100644
+--- a/west.yml
++++ b/west.yml
+@@ -360,6 +360,10 @@ manifest:
+     - name: open-amp
+       revision: 01032a8a7bdfdd541686f5dfa3671e602b9fcbff
+       path: modules/lib/open-amp
++    - name: erpc
++      url: https://github.com/EmbeddedRPC/erpc.git
++      revision: main
++      path: modules/lib/erpc
+     - name: openthread
+       revision: e4d97681c53ec1cc34af1404ad2960adda4ba691
+       path: modules/lib/openthread
+-- 
+2.34.1
+
