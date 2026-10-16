@@ -172,9 +172,8 @@ menu "Transport Layer"
 
 config ERPC_TRANSPORT_UART
 	bool "Enable eRPC UART transport"
-	depends on UART
+	depends on SERIAL
 	select RING_BUFFER
-	select SERIAL
 	select UART_INTERRUPT_DRIVEN
 	help
 	  When enabled, eRPC will include UART transport layer.
