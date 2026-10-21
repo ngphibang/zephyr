@@ -23,6 +23,10 @@ public final class AudioPlaybackCapture implements AudioCapture {
 
     private AudioRecord recorder;
     private AudioRecordReader reader;
+    // The registered policy, to unregister on stop: a server that serves one session after
+    // another would otherwise leave a mix per session, and a stale mix with no output that
+    // still matches a track is picked before the live one, leaving the track on the device
+    private Object audioPolicy;
 
     public AudioPlaybackCapture(boolean keepPlayingOnDevice) {
         this.keepPlayingOnDevice = keepPlayingOnDevice;
@@ -43,19 +47,36 @@ public final class AudioPlaybackCapture implements AudioCapture {
             Method setTargetMixRoleMethod = audioMixingRuleBuilderClass.getMethod("setTargetMixRole", int.class);
             setTargetMixRoleMethod.invoke(audioMixingRuleBuilder, mixRolePlayersConstant);
 
-            AudioAttributes attributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build();
-
-            // audioMixingRuleBuilder.addMixRule(AudioMixingRule.RULE_MATCH_ATTRIBUTE_USAGE, attributes);
+            // What the remote submix route takes (media, games, navigation, accessibility, the
+            // assistant) plus the far end of VoIP calls, which that route leaves on the device.
+            // Cellular calls never pass through the mixer and stay out either way.
             int ruleMatchAttributeUsageConstant = audioMixingRuleClass.getField("RULE_MATCH_ATTRIBUTE_USAGE").getInt(null);
             Method addMixRuleMethod = audioMixingRuleBuilderClass.getMethod("addMixRule", int.class, Object.class);
-            addMixRuleMethod.invoke(audioMixingRuleBuilder, ruleMatchAttributeUsageConstant, attributes);
+            int[] usages = {
+                    AudioAttributes.USAGE_MEDIA,
+                    AudioAttributes.USAGE_GAME,
+                    AudioAttributes.USAGE_UNKNOWN,
+                    AudioAttributes.USAGE_ASSISTANT,
+                    AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
+                    AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY,
+                    AudioAttributes.USAGE_VOICE_COMMUNICATION,
+            };
+            for (int usage : usages) {
+                AudioAttributes attributes = new AudioAttributes.Builder().setUsage(usage).build();
+                // audioMixingRuleBuilder.addMixRule(AudioMixingRule.RULE_MATCH_ATTRIBUTE_USAGE, attributes);
+                addMixRuleMethod.invoke(audioMixingRuleBuilder, ruleMatchAttributeUsageConstant, attributes);
+            }
 
-            // AudioMixingRule audioMixingRule = builder.build();
-            Object audioMixingRule = audioMixingRuleBuilderClass.getMethod("build").invoke(audioMixingRuleBuilder);
-
+            // Must be set before build(), or it never reaches the rule; it needs
+            // CAPTURE_VOICE_COMMUNICATION_OUTPUT, which the shell holds. Apps that opted out of
+            // capture are left alone: taking them (allowPrivilegedPlaybackCapture) caps the mix
+            // at 16 kHz.
             // audioMixingRuleBuilder.voiceCommunicationCaptureAllowed(true);
             Method voiceCommunicationCaptureAllowedMethod = audioMixingRuleBuilderClass.getMethod("voiceCommunicationCaptureAllowed", boolean.class);
             voiceCommunicationCaptureAllowedMethod.invoke(audioMixingRuleBuilder, true);
+
+            // AudioMixingRule audioMixingRule = builder.build();
+            Object audioMixingRule = audioMixingRuleBuilderClass.getMethod("build").invoke(audioMixingRuleBuilder);
 
             Class<?> audioMixClass = Class.forName("android.media.audiopolicy.AudioMix");
             Class<?> audioMixBuilderClass = Class.forName("android.media.audiopolicy.AudioMix$Builder");
@@ -88,7 +109,7 @@ public final class AudioPlaybackCapture implements AudioCapture {
             addMixMethod.invoke(audioPolicyBuilder, audioMix);
 
             // AudioPolicy audioPolicy = audioPolicyBuilder.build();
-            Object audioPolicy = audioPolicyBuilderClass.getMethod("build").invoke(audioPolicyBuilder);
+            audioPolicy = audioPolicyBuilderClass.getMethod("build").invoke(audioPolicyBuilder);
 
             // AudioManager.registerAudioPolicyStatic(audioPolicy);
             Method registerAudioPolicyStaticMethod = AudioManager.class.getDeclaredMethod("registerAudioPolicyStatic", audioPolicyClass);
@@ -127,6 +148,23 @@ public final class AudioPlaybackCapture implements AudioCapture {
         if (recorder != null) {
             // Will call .stop() if necessary, without throwing an IllegalStateException
             recorder.release();
+        }
+        if (audioPolicy != null) {
+            unregisterAudioPolicy(audioPolicy);
+            audioPolicy = null;
+        }
+    }
+
+    @SuppressLint("PrivateApi")
+    private static void unregisterAudioPolicy(Object audioPolicy) {
+        try {
+            Class<?> audioPolicyClass = Class.forName("android.media.audiopolicy.AudioPolicy");
+            // AudioManager.unregisterAudioPolicyAsyncStatic(audioPolicy);
+            Method method = AudioManager.class.getDeclaredMethod("unregisterAudioPolicyAsyncStatic", audioPolicyClass);
+            method.setAccessible(true);
+            method.invoke(null, audioPolicy);
+        } catch (Exception e) {
+            Ln.w("Could not unregister the audio policy", e);
         }
     }
 

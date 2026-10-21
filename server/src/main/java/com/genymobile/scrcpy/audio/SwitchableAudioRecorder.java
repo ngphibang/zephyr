@@ -26,6 +26,8 @@ public final class SwitchableAudioRecorder implements AsyncProcessor {
     private final boolean audioDup;
     private final Streamer streamer;
 
+    // The source the host calls "playback": whichever playback capture it was launched with
+    private final AudioSource playbackSource;
     private AudioSource source;
     private AudioRawRecorder recorder;
     private TerminationListener listener;
@@ -34,6 +36,7 @@ public final class SwitchableAudioRecorder implements AsyncProcessor {
 
     public SwitchableAudioRecorder(AudioSource initialSource, boolean audioDup, Streamer streamer) {
         this.source = initialSource;
+        this.playbackSource = initialSource.isDirect() && initialSource != AudioSource.OUTPUT ? AudioSource.OUTPUT : initialSource;
         this.audioDup = audioDup;
         this.streamer = streamer;
     }
@@ -45,10 +48,10 @@ public final class SwitchableAudioRecorder implements AsyncProcessor {
         return new AudioPlaybackCapture(audioDup);
     }
 
-    private static AudioSource toAudioSource(int code) {
+    private AudioSource toAudioSource(int code) {
         switch (code) {
             case SOURCE_PLAYBACK:
-                return AudioSource.OUTPUT;
+                return playbackSource;
             case SOURCE_MIC:
                 return AudioSource.MIC_VOICE_COMMUNICATION;
             default:
