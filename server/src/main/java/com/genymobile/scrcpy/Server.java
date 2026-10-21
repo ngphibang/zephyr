@@ -114,7 +114,7 @@ public final class Server {
         Connection connection;
         if (options.getRemoteHost() != null) {
             connection = RemoteDirectConnection.open(options.getRemoteHost(), options.getRemotePort(), video, audio, control, mic,
-                    sendDummyByte);
+                    sendDummyByte, options.getWifiSsid(), options.getWifiPsk());
         } else {
             connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
         }

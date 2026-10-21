@@ -52,6 +52,8 @@ public final class RemoteDirectConnection implements Connection {
     private static final int KEEPALIVE_INTERVAL_S = 5;
     private static final int KEEPALIVE_COUNT = 3;
     private static final int USER_TIMEOUT_MS = 15000;
+    // After this many failed attempts the device is asked to join the host's network again
+    private static final int STEER_EVERY_ATTEMPTS = 8;
 
     private final Socket videoSocket;
     private final Socket audioSocket;
@@ -146,9 +148,33 @@ public final class RemoteDirectConnection implements Connection {
      * The host may come up after the server, so a refused or timed out connection is retried
      * every second rather than reported.
      */
+    /**
+     * Ask Android to join the host's Wi-Fi network.
+     *
+     * The host's access point has no internet, so Android leaves it for any network that has
+     * some, the home Wi-Fi or mobile data, whenever it can, and the host becomes unreachable.
+     * The server runs as the shell user and may use the Wi-Fi shell command to steer the device
+     * back, as a user would from the settings.
+     */
+    private static void joinWifi(String ssid, String psk) {
+        try {
+            String[] cmd = (psk != null && !psk.isEmpty())
+                    ? new String[] {"cmd", "wifi", "connect-network", ssid, "wpa2", psk}
+                    : new String[] {"cmd", "wifi", "connect-network", ssid, "open"};
+            Process process = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            process.waitFor();
+            Ln.i("Asked to join Wi-Fi network " + ssid);
+        } catch (IOException | RuntimeException e) {
+            Ln.w("Could not ask to join the Wi-Fi network", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public static RemoteDirectConnection open(String host, int port, boolean video, boolean audio, boolean control, boolean mic,
-            boolean sendDummyByte) throws IOException {
+            boolean sendDummyByte, String wifiSsid, String wifiPsk) throws IOException {
         InetSocketAddress address = new InetSocketAddress(host, port);
+        int attempts = 0;
 
         Ln.i("Connecting to " + address + "...");
         while (true) {
@@ -192,6 +218,10 @@ public final class RemoteDirectConnection implements Connection {
                 closeQuietly(controlSocket);
                 closeQuietly(micSocket);
                 Ln.i("Connection to " + address + " failed (" + e.getMessage() + "), retrying");
+                attempts++;
+                if (wifiSsid != null && attempts % STEER_EVERY_ATTEMPTS == 0) {
+                    joinWifi(wifiSsid, wifiPsk);
+                }
                 SystemClock.sleep(RETRY_DELAY_MS);
             }
         }

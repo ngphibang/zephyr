@@ -91,6 +91,8 @@ public class Options {
     private String remoteHost;
     private int remotePort = 5000;
     private boolean mic;
+    private String wifiSsid;
+    private String wifiPsk;
 
     public Ln.Level getLogLevel() {
         return logLevel;
@@ -330,6 +332,14 @@ public class Options {
 
     public boolean getMic() {
         return mic;
+    }
+
+    public String getWifiSsid() {
+        return wifiSsid;
+    }
+
+    public String getWifiPsk() {
+        return wifiPsk;
     }
 
     public boolean getSendStreamMeta() {
@@ -584,6 +594,12 @@ public class Options {
                     break;
                 case "mic":
                     options.mic = Boolean.parseBoolean(value);
+                    break;
+                case "wifi_ssid":
+                    options.wifiSsid = value;
+                    break;
+                case "wifi_psk":
+                    options.wifiPsk = value;
                     break;
                 case "raw_stream":
                     boolean rawStream = Boolean.parseBoolean(value);
