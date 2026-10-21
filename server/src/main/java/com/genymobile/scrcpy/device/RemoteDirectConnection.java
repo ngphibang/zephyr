@@ -89,8 +89,11 @@ public final class RemoteDirectConnection implements Connection {
      * data. Asking a network's capabilities is refused to the shell user, so the connection is
      * simply tried bound to each network in turn, the default route last.
      */
-    private static Socket connect(InetSocketAddress address, boolean noDelay) throws IOException {
+    private static Socket connect(InetSocketAddress address, boolean noDelay, HostNetwork host) throws IOException {
         List<Network> networks = new ArrayList<>();
+        if (host != null && host.get() != null) {
+            networks.add(host.get());
+        }
         try {
             ConnectivityManager cm = FakeContext.get().getSystemService(ConnectivityManager.class);
             if (cm != null) {
@@ -218,7 +221,7 @@ public final class RemoteDirectConnection implements Connection {
     }
 
     public static RemoteDirectConnection open(String host, int port, boolean video, boolean audio, boolean control, boolean mic,
-            boolean sendDummyByte, String wifiSsid, String wifiPsk) throws IOException {
+            boolean sendDummyByte, HostNetwork hostNetwork, String wifiSsid, String wifiPsk) throws IOException {
         InetSocketAddress address = new InetSocketAddress(host, port);
         int attempts = 0;
 
@@ -231,7 +234,7 @@ public final class RemoteDirectConnection implements Connection {
             boolean dummyByte = sendDummyByte;
             try {
                 if (video) {
-                    videoSocket = connect(address, false);
+                    videoSocket = connect(address, false, hostNetwork);
                     if (dummyByte) {
                         // send one byte so the client may read() to detect a connection error
                         videoSocket.getOutputStream().write(0);
@@ -239,7 +242,7 @@ public final class RemoteDirectConnection implements Connection {
                     }
                 }
                 if (audio) {
-                    audioSocket = connect(address, false);
+                    audioSocket = connect(address, false, hostNetwork);
                     if (dummyByte) {
                         audioSocket.getOutputStream().write(0);
                         dummyByte = false;
@@ -247,14 +250,14 @@ public final class RemoteDirectConnection implements Connection {
                 }
                 if (control) {
                     // Control messages are small and must not wait behind each other
-                    controlSocket = connect(address, true);
+                    controlSocket = connect(address, true, hostNetwork);
                     if (dummyByte) {
                         controlSocket.getOutputStream().write(0);
                     }
                 }
                 if (mic) {
                     // Read only: the host writes its microphone to it
-                    micSocket = connect(address, false);
+                    micSocket = connect(address, false, hostNetwork);
                 }
                 Ln.i("Connected to " + address);
                 return new RemoteDirectConnection(videoSocket, audioSocket, controlSocket, micSocket);
@@ -265,7 +268,9 @@ public final class RemoteDirectConnection implements Connection {
                 closeQuietly(micSocket);
                 Ln.i("Connection to " + address + " failed (" + e.getMessage() + "), retrying");
                 attempts++;
-                if (wifiSsid != null && attempts % STEER_EVERY_ATTEMPTS == 0) {
+                // With a held network Android brings the device back itself; the shell
+                // command is the fallback for an Android that cannot hold one
+                if (hostNetwork == null && wifiSsid != null && attempts % STEER_EVERY_ATTEMPTS == 0) {
                     steerWifi(wifiSsid, wifiPsk);
                 }
                 SystemClock.sleep(RETRY_DELAY_MS);

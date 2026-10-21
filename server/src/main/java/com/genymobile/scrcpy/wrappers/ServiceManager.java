@@ -5,6 +5,7 @@ import com.genymobile.scrcpy.FakeContext;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.hardware.camera2.CameraManager;
+import android.net.ConnectivityManager;
 import android.os.IBinder;
 import android.os.IInterface;
 
@@ -32,6 +33,7 @@ public final class ServiceManager {
     private static ClipboardManager clipboardManager;
     private static ActivityManager activityManager;
     private static CameraManager cameraManager;
+    private static ConnectivityManager connectivityManager;
 
     private ServiceManager() {
         /* not instantiable */
@@ -96,6 +98,23 @@ public final class ServiceManager {
             activityManager = ActivityManager.create();
         }
         return activityManager;
+    }
+
+    // Built with the shell's context, so the calls carry the shell's package: the one the system
+    // context hands out carries "android", which the connectivity service refuses to uid 2000
+    public static ConnectivityManager getConnectivityManager() {
+        if (connectivityManager == null) {
+            try {
+                IInterface service = getService("connectivity", "android.net.IConnectivityManager");
+                Class<?> serviceClass = Class.forName("android.net.IConnectivityManager");
+                Constructor<ConnectivityManager> ctor = ConnectivityManager.class.getDeclaredConstructor(Context.class, serviceClass);
+                ctor.setAccessible(true);
+                connectivityManager = ctor.newInstance(FakeContext.get(), service);
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+        }
+        return connectivityManager;
     }
 
     public static CameraManager getCameraManager() {

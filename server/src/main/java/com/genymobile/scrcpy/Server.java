@@ -14,6 +14,7 @@ import com.genymobile.scrcpy.control.Controller;
 import com.genymobile.scrcpy.device.Connection;
 import com.genymobile.scrcpy.device.DesktopConnection;
 import com.genymobile.scrcpy.device.Device;
+import com.genymobile.scrcpy.device.HostNetwork;
 import com.genymobile.scrcpy.device.RemoteDirectConnection;
 import com.genymobile.scrcpy.device.Streamer;
 import com.genymobile.scrcpy.model.ConfigurationException;
@@ -76,6 +77,8 @@ public final class Server {
 
     // Set when the remote host asks the server to exit instead of reconnecting
     private static volatile boolean quitRequested;
+    // The host's Wi-Fi network, held for the whole run in remote mode
+    private static HostNetwork hostNetwork;
 
     private Server() {
         // not instantiable
@@ -114,7 +117,7 @@ public final class Server {
         Connection connection;
         if (options.getRemoteHost() != null) {
             connection = RemoteDirectConnection.open(options.getRemoteHost(), options.getRemotePort(), video, audio, control, mic,
-                    sendDummyByte, options.getWifiSsid(), options.getWifiPsk());
+                    sendDummyByte, hostNetwork, options.getWifiSsid(), options.getWifiPsk());
         } else {
             connection = DesktopConnection.open(scid, tunnelForward, video, audio, control, sendDummyByte);
         }
@@ -247,6 +250,22 @@ public final class Server {
      * thread of its own with its own main looper, since a looper cannot be reused once quit.
      */
     private static void serveRemote(Options options, CleanUp cleanUp) throws ConfigurationException, InterruptedException {
+        // The system services behind the request need a looper on the calling thread; the
+        // sessions run their own, so the main thread gets a plain one of its own
+        if (Looper.myLooper() == null) {
+            Looper.prepare();
+        }
+        hostNetwork = HostNetwork.request(options.getWifiSsid(), options.getWifiPsk());
+        try {
+            serveRemoteSessions(options, cleanUp);
+        } finally {
+            if (hostNetwork != null) {
+                hostNetwork.release();
+            }
+        }
+    }
+
+    private static void serveRemoteSessions(Options options, CleanUp cleanUp) throws ConfigurationException, InterruptedException {
         while (true) {
             final Exception[] failure = {null};
 
