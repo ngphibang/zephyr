@@ -8,9 +8,11 @@ package com.genymobile.scrcpy.audio;
 
 import com.genymobile.scrcpy.AndroidVersions;
 import com.genymobile.scrcpy.AsyncProcessor;
+import com.genymobile.scrcpy.FakeContext;
 import com.genymobile.scrcpy.util.Ln;
 
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -98,13 +100,15 @@ public final class MicPlayer implements AsyncProcessor {
                     .setSampleRate(SAMPLE_RATE)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build();
-            // The device's own audio capture makes the remote submix the output of the whole
-            // media strategy, whatever a track's capture policy says, so a media, navigation,
-            // accessibility or assistant track would go to the host instead of the speaker.
-            // The alarm usage belongs to the sonification strategy, which stays on the
-            // speaker, and its volume is rarely turned down.
+            // The voice communication usage is the only output the echo canceller of a call
+            // app's microphone capture references: on any other usage the phone's microphone
+            // sends this voice to the far end, whose echo of it comes back to the host through
+            // the playback capture. The usage is in the playback capture's mix, so the track
+            // opts out of capture and the capture excludes this uid (AudioPlaybackCapture).
+            // A media, navigation, accessibility or assistant usage would go to the remote
+            // submix instead of the speaker while the device's own audio is captured.
             AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
             if (Build.VERSION.SDK_INT >= AndroidVersions.API_29_ANDROID_10) {
                 attributesBuilder.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE);
@@ -114,8 +118,28 @@ public final class MicPlayer implements AsyncProcessor {
             int bufferSize = Math.max(minSize, 4 * BLOCK_SAMPLES * 2);
             speaker = new AudioTrack(attributes, format, bufferSize, AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE);
             speaker.play();
+            routeToSpeaker();
         }
         return speaker;
+    }
+
+    // The phone strategy plays on the earpiece outside a call, so the track gets the
+    // loudspeaker as its own preferred device. A communication device set for this uid
+    // would instead change the strategy's route, and Telecom starts an incoming call from
+    // the current communication device: the far end then played on the speaker instead of
+    // reaching the capture mix.
+    private void routeToSpeaker() {
+        AudioManager audioManager = FakeContext.get().getSystemService(AudioManager.class);
+        int index = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+        int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+        boolean routed = false;
+        for (AudioDeviceInfo device : audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+            if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                routed = speaker.setPreferredDevice(device);
+                break;
+            }
+        }
+        Ln.i("Microphone: " + (routed ? "routed to the speaker" : "speaker route refused") + ", call volume " + index + "/" + max);
     }
 
     private final byte[] upsampled = new byte[BLOCK_SAMPLES * INJECT_FACTOR * 2];

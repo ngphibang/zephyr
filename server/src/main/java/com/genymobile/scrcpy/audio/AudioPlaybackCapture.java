@@ -13,6 +13,7 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.os.Build;
+import android.os.Process;
 
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
@@ -67,6 +68,13 @@ public final class AudioPlaybackCapture implements AudioCapture {
                 // audioMixingRuleBuilder.addMixRule(AudioMixingRule.RULE_MATCH_ATTRIBUTE_USAGE, attributes);
                 addMixRuleMethod.invoke(audioMixingRuleBuilder, ruleMatchAttributeUsageConstant, attributes);
             }
+
+            // The server's own tracks (the microphone player's voice communication track)
+            // never come back to the host, whatever their capture policy.
+            // audioMixingRuleBuilder.excludeMixRule(AudioMixingRule.RULE_MATCH_UID, Process.myUid());
+            int ruleMatchUidConstant = audioMixingRuleClass.getField("RULE_MATCH_UID").getInt(null);
+            Method excludeMixRuleMethod = audioMixingRuleBuilderClass.getMethod("excludeMixRule", int.class, Object.class);
+            excludeMixRuleMethod.invoke(audioMixingRuleBuilder, ruleMatchUidConstant, Process.myUid());
 
             // Must be set before build(), or it never reaches the rule; it needs
             // CAPTURE_VOICE_COMMUNICATION_OUTPUT, which the shell holds. Apps that opted out of
