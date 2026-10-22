@@ -47,6 +47,9 @@ public final class MicPlayer implements AsyncProcessor {
     // injection mix, so the mix runs at 48 kHz and the stream is upsampled for it
     private static final int INJECT_RATE = 48000;
     private static final int INJECT_FACTOR = INJECT_RATE / SAMPLE_RATE;
+    // An injected microphone gets no automatic gain control, so the far end of a call
+    // hears the board's microphone soft without a gain of its own
+    private static final int INJECT_GAIN = 2;
 
     private final FileDescriptor fd;
     private volatile int mode = MODE_SPEAKER;
@@ -145,12 +148,13 @@ public final class MicPlayer implements AsyncProcessor {
     private final byte[] upsampled = new byte[BLOCK_SAMPLES * INJECT_FACTOR * 2];
     private short lastSample;
 
-    /* Linear interpolation from the block rate to the injection rate, continuous across blocks */
+    /* Gain, then linear interpolation from the block rate to the injection rate, continuous across blocks */
     private byte[] upsample(byte[] pcm16) {
         int o = 0;
         short prev = lastSample;
         for (int i = 0; i < BLOCK_SAMPLES; i++) {
-            short cur = (short) ((pcm16[2 * i] & 0xFF) | (pcm16[2 * i + 1] << 8));
+            int raw = (short) ((pcm16[2 * i] & 0xFF) | (pcm16[2 * i + 1] << 8));
+            short cur = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, raw * INJECT_GAIN));
             for (int k = 1; k <= INJECT_FACTOR; k++) {
                 int v = prev + (cur - prev) * k / INJECT_FACTOR;
                 upsampled[o++] = (byte) v;
