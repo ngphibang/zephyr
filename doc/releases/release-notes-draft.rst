@@ -103,6 +103,11 @@ New APIs and options
   * Added PSA Protected Storage backend, enable with
     :kconfig:option:`CONFIG_FIDO2_STORAGE_PSA_PROTECTED_STORAGE`
 
+* Video
+
+  * :c:macro:`VIDEO_CTRL_FLAG_EXECUTE_ON_WRITE`
+  * :c:enumerator:`VIDEO_CTRL_TYPE_BUTTON`
+
 .. zephyr-keep-sorted-stop
 
 .. _boards_added_in_zephyr_4_6:
