@@ -40,6 +40,51 @@ Display API on top of a DSI link.
 As with DBI, applications never call DSI functions directly. They remain portable by using the
 generic Display API, while the driver handles the DSI transactions internally.
 
+Hardware composition with planes
+********************************
+
+Many display controllers read several buffers from memory and blend them in their datapath on
+the way to the panel, with no intermediate buffer and no copy: NXP's LCDIFv2 has eight such
+layers, ST's LTDC two. The Display API exposes them as **planes**, the units of hardware composition. A display reports
+how many it has in :c:member:`display_capabilities.num_planes`; a display without planes reports
+zero and :c:func:`display_get_plane_capabilities`, :c:func:`display_set_plane` and
+:c:func:`display_commit` return ``-ENOSYS``.
+
+Planes are stacked in index order: plane 0 is the background and is the plane
+:c:func:`display_write` drives, the highest index is on top. Each plane has its own pixel format,
+size and position on the panel, and, above plane 0, a plane alpha and a
+:c:enum:`display_blend_mode` that says how the controller combines it with the planes below. The
+capabilities of a plane list the formats and blend modes it supports and its largest size. There
+is no scaling and no source cropping: a plane shows exactly the pixels of its buffer, and a
+window of a larger buffer is given by an offset pointer and a pitch.
+
+A plane update is a two-step, atomic operation. :c:func:`display_set_plane` validates and stages
+the configuration of one plane; :c:func:`display_commit` applies every staged plane at the next
+vertical synchronization and returns once the new configuration is being scanned out. Several
+planes staged before one commit therefore change in the same frame. A buffer given to a plane is
+read by the controller until a later commit that replaces or disables that plane returns, so the
+caller keeps it unchanged until then; this is the buffer lifetime
+:c:enumerator:`SCREEN_INFO_WRITE_HOLDS_BUFFER` gives a full-frame write, unconditional for planes.
+A NULL buffer disables the plane. Commits may come from several threads, one per producer; the
+driver serializes them.
+
+.. code-block:: c
+
+   struct display_plane_config cfg = {
+           .buf = frame,
+           .desc = {.buf_size = size, .width = w, .height = h, .pitch = w},
+           .pixel_format = PIXEL_FORMAT_ARGB_8888,
+           .x = 32, .y = 32,
+           .alpha = 255,
+           .blend_mode = DISPLAY_BLEND_COVERAGE,
+   };
+
+   display_set_plane(dev, 1, &cfg);
+   display_commit(dev);
+
+Not covered by this API, and reported as unsupported by the drivers, are scaling, cropping,
+changing the stacking order, and commits that return before the frame is shown.
+
 API Reference
 *************
 
