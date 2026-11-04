@@ -116,10 +116,11 @@ static uint8_t arena[64];
 
 /* Runs in the display branch thread: render the latest boxes into the frame */
 static void draw_cb(uint8_t *frame, uint16_t width, uint16_t height, uint32_t pixfmt,
-		    void *user_data)
+		    const struct net_buf *in, void *user_data)
 {
 	struct mpipe_nn_results res;
 
+	ARG_UNUSED(in);
 	ARG_UNUSED(user_data);
 
 	if (mpipe_nn_results_store_get(&results_store, &res) != 0 ||

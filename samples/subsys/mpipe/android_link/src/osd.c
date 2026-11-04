@@ -69,12 +69,13 @@ static void osd_paint(uint8_t *frame, uint16_t width, uint16_t height, uint32_t 
 
 /* The overlay element's callback, once per frame on the display thread */
 static void osd_draw(uint8_t *frame, uint16_t width, uint16_t height, uint32_t pixfmt,
-		     void *user_data)
+		     const struct net_buf *in, void *user_data)
 {
 	char text[OSD_TEXT_MAX];
 	k_spinlock_key_t key;
 	bool active;
 
+	ARG_UNUSED(in);
 	ARG_UNUSED(user_data);
 
 	key = k_spin_lock(&osd.lock);
