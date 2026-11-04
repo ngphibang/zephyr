@@ -7,11 +7,44 @@
 Overview
 ********
 
-A tee splits the camera stream: the display branch draws the most recent
-detection boxes into every frame through the overlay element, then rotates it
+A tee splits the camera stream: the display branch shows the frame, rotated
 for the panel where the board has a hardware transform; the inference branch
 runs the detector on the frame as the sensor delivers it, so boxes and
-detector share one orientation whatever the panel's. The app_sink callback
+detector share one orientation whatever the panel's.
+
+Where the display driver has planes (``CONFIG_SAMPLE_OVERLAY_PLANE``,
+set for ``native_sim`` and the i.MX RT1170 EVK), the display controller does
+the compositing: the camera frame reaches plane 0 untouched, and the overlay
+element, at the end of the inference branch, draws each result set into a
+transparent frame of its own that a second display sink hands to plane 1.
+Nothing copies the video and the boxes land on the panel with the result they
+belong to:
+
+.. graphviz::
+
+   digraph pipeline_planes {
+     rankdir=LR;
+     node [shape=box, style=filled, fillcolor="#e8e8e8"];
+     camera    [label="Camera\nSource"];
+     caps      [label="Caps\nFilter"];
+     tee       [label="Tee"];
+     queue_d   [label="Queue"];
+     transform [label="Video\nTransform"];
+     display   [label="Display\nSink\nplane 0"];
+     queue_nn  [label="Queue\n(leaky)"];
+     convert   [label="NN\nConverter"];
+     queue_t   [label="Queue\n(leaky)"];
+     runner    [label="NN\nRunner"];
+     decode    [label="NN\nDecoder"];
+     overlay   [label="Video\nOverlay\n(plane)"];
+     display1  [label="Display\nSink\nplane 1"];
+     camera -> caps -> tee;
+     tee -> queue_d -> transform -> display;
+     tee -> queue_nn -> convert -> queue_t -> runner -> decode -> overlay -> display1;
+   }
+
+Otherwise the display branch draws the most recent boxes into every frame
+through the overlay element before the transform, and the app_sink callback
 publishes each result set into a latest-results store the overlay's draw
 callback reads, one or two frames late:
 

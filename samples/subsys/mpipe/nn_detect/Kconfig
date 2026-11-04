@@ -66,6 +66,17 @@ config PROP_NUM_BUFS
 	help
 	  If not set or set to 0, the source will run forever.
 
+config SAMPLE_OVERLAY_PLANE
+	bool "Draw the boxes on a display plane"
+	depends on VIDEO_FRAME_WIDTH != 0 && VIDEO_FRAME_HEIGHT != 0
+	help
+	  Show the camera frame on plane 0 of the display untouched and draw
+	  each result set into a transparent frame of the panel's size on
+	  plane 1, which the display controller blends over the video at
+	  scan-out. Needs a display driver with planes, such as the
+	  SDL display or the LCDIFv2; otherwise the overlay draws the latest
+	  boxes into every frame before it is displayed.
+
 config SAMPLE_NN_ARENA_SIZE
 	int "Tensor arena size in bytes"
 	default 320000
