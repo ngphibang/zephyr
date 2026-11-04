@@ -136,6 +136,13 @@ Libraries / Subsystems
   * Added a HID Service server (:kconfig:option:`CONFIG_BT_HIDS`), the service
     the HID Device role of the HID over GATT Profile is built on.
 
+* Multimedia Pipeline
+
+  * The display sink drives a plane of the display when bound to one
+    (``MPIPE_PROP_DISP_SINK_PLANE`` and the position, alpha and blend mode
+    properties), so several sinks compose their streams in the display
+    controller without a copy.
+
 Other notable changes
 *********************
 
