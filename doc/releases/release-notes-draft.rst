@@ -85,6 +85,14 @@ New APIs and options
     unsigned) or 2 cells (64-bit unsigned, high word first) and produces a
     scalar ``DT_PROP`` integer macro
 
+* Display
+
+  * Planes for hardware composition, the layers a display controller blends at scan-out:
+    :c:func:`display_get_plane_capabilities`, :c:func:`display_set_plane`,
+    :c:func:`display_commit`, :c:struct:`display_plane_capabilities`,
+    :c:struct:`display_plane_config`, :c:enum:`display_blend_mode` and
+    :c:member:`display_capabilities.num_planes`.
+
 .. zephyr-keep-sorted-stop
 
 .. _boards_added_in_zephyr_4_6:
