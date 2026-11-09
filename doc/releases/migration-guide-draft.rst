@@ -61,6 +61,13 @@ Boards
   (P2.0 to P2.2) was removed. SCB2 is now ``arduino_spi`` on the Arduino header pins D11 to D13
   (P10.0 to P10.2), disabled by default.
 
+* :zephyr:board:`mimxrt1170_evk`: the ``zephyr_lcdif`` label now names the LCDIFv2 controller
+  (:dtcompatible:`nxp,imx-lcdifv2`) instead of the eLCDIF, so the MIPI DSI display shields run
+  on it. Applications that set ``CONFIG_MCUX_ELCDIF_*`` options for this board use the
+  ``CONFIG_MCUX_LCDIFV2_*`` ones, and overlays that set eLCDIF-only properties such as
+  ``data-bus-width`` on ``&zephyr_lcdif`` set them on ``&lcdif``. The board devicetree
+  comment shows the one-line change back to the eLCDIF.
+
 Device Drivers and Devicetree
 *****************************
 
