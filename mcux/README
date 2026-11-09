@@ -211,6 +211,11 @@ Patch List:
       - CLOCK_GetAvPllFreq() converted the numerator (MFN) as unsigned, but it is a signed 30-bit field
         (RM, NUMERATOR[NUM]; AN14420), so a numerator with bit 29 set gave a wrong frequency.
       - This patch is in hal_nxp but is not in mcux-devices-rt (main, 2026-10-09).
+  - mcux-sdk-ng: drivers: csi: make the frame buffer queue circular
+      - buf_queue_t only reused its array once it had drained, so four buffers queued before
+        CSI_TransferStart() left the queue reported full with two entries and the first
+        returned buffer was refused (kStatus_CSI_QueueFull).
+      - This patch is in hal_nxp but is not in mcux-sdk-ng (main, 2026-11-09).
 
   - hal_nxp: undefine PAGESIZE macro before naming fields.
    - Commit: https://github.com/zephyrproject-rtos/hal_nxp/commit/6ef86202a220da2a02c1ba9a6e148d4d896aa26f
