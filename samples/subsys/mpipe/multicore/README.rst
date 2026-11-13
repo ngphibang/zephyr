@@ -46,7 +46,10 @@ Elements
 The remote core runs the ``remote`` application of this sample: an eRPC server that
 implements the video transform interface and decodes with the ``jpegdec`` module. Both
 sides are generated from the same interface definition,
-:zephyr_file:`subsys/mpipe/vid/erpc/mpipe_vid_transform.erpc`.
+:zephyr_file:`subsys/mpipe/vid/erpc/mpipe_vid_transform.erpc`. The server uses neither this
+framework nor any Zephyr service but the transport, as the firmware of a core that runs
+neither would. :zephyr:code-sample:`mpipe-multicore-pipelines` shows the other case, a
+remote core that runs pipelines of its own.
 
 Input
 *****

@@ -118,15 +118,44 @@ static int32_t mpipe_vid_transform_client_erpc_transform_cap(enum mpipe_pad_dire
 	return 0;
 }
 
+static int mpipe_vid_transform_client_erpc_process(uintptr_t in_buf, uint32_t in_sz,
+						   uintptr_t out_buf, uint32_t *out_sz)
+{
+	/* The interface carries 32-bit addresses */
+	if (in_buf > UINT32_MAX || out_buf > UINT32_MAX) {
+		return -EFAULT;
+	}
+
+	return process_fn_rpc((uint32_t)in_buf, in_sz, (uint32_t)out_buf, out_sz);
+}
+
+static int mpipe_vid_transform_client_erpc_set_state(enum mpipe_state_change transition)
+{
+	return set_state_rpc((uint8_t)transition);
+}
+
+static int mpipe_vid_transform_client_erpc_eos(void)
+{
+	return eos_rpc();
+}
+
 static int mpipe_vid_transform_client_erpc_init_rpc(void)
 {
-	erpc_client_t client = mpipe_erpc_client_init();
+	/* The generated binding holds one client of the interface */
+	static bool bound;
+	erpc_client_t client;
 
+	if (bound) {
+		return -EBUSY;
+	}
+
+	client = mpipe_erpc_client_create(CONFIG_MPIPE_VID_ERPC_TRANSFORM_ENDPOINT);
 	if (client == NULL) {
 		return -EIO;
 	}
 
 	initMpipeVidTransform_client(client);
+	bound = true;
 
 	return 0;
 }
@@ -136,7 +165,9 @@ int mpipe_vid_transform_client_erpc_init(struct mpipe_vid_transform_client *vtc,
 	__ASSERT_NO_MSG(vtc != NULL);
 
 	vtc->transform.init_rpc = mpipe_vid_transform_client_erpc_init_rpc;
-	vtc->transform.process_fn_rpc = process_fn_rpc;
+	vtc->transform.process_fn_rpc = mpipe_vid_transform_client_erpc_process;
+	vtc->transform.set_state_rpc = mpipe_vid_transform_client_erpc_set_state;
+	vtc->transform.eos_rpc = mpipe_vid_transform_client_erpc_eos;
 
 	vtc->get_buf_caps_rpc = mpipe_vid_transform_client_erpc_get_buf_caps;
 	vtc->get_format_caps_rpc = mpipe_vid_transform_client_erpc_get_format_caps;

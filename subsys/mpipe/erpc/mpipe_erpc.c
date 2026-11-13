@@ -14,8 +14,6 @@
 
 LOG_MODULE_REGISTER(mpipe_erpc, CONFIG_MPIPE_LOG_LEVEL);
 
-static erpc_client_t client;
-
 static const char *mpipe_erpc_status_str(erpc_status_t err)
 {
 	switch (err) {
@@ -68,17 +66,14 @@ void mpipe_erpc_error_handler(erpc_status_t err, uint32_t function_id)
 	}
 }
 
-erpc_client_t mpipe_erpc_client_init(void)
+erpc_client_t mpipe_erpc_client_create(const char *ept_name)
 {
 	erpc_transport_t transport;
+	erpc_client_t client;
 	erpc_mbf_t mbf;
 
-	if (client != NULL) {
-		return client;
-	}
-
-	transport = erpc_transport_zephyr_ipc_master_init(CONFIG_ERPC_ENDPOINT_NAME,
-							  CONFIG_MPIPE_ERPC_INIT_DELAY_MS);
+	transport =
+		erpc_transport_zephyr_ipc_master_init(ept_name, CONFIG_MPIPE_ERPC_INIT_DELAY_MS);
 	if (transport == NULL) {
 		LOG_ERR("Failed to initialize the eRPC transport");
 		return NULL;

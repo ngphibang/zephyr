@@ -26,14 +26,20 @@
  * @brief Initialize a client-side video transform element bound to eRPC.
  *
  * Installs the eRPC hooks on the element, binds the video transform interface
- * to the client the eRPC backend brings up, then initializes the element as
- * mpipe_vid_transform_client_init() does.
+ * to an eRPC client on the endpoint
+ * @kconfig{CONFIG_MPIPE_VID_ERPC_TRANSFORM_ENDPOINT}, then initializes the
+ * element as mpipe_vid_transform_client_init() does. The call waits for the
+ * server on the other core to register the endpoint.
+ *
+ * The generated binding holds one client of the interface, so an image has
+ * one such element.
  *
  * @param vtc Pointer to the element to initialize.
  * @param id Unique element identifier.
  *
  * @retval 0 Success.
  * @retval -EIO The eRPC transport could not be brought up.
+ * @retval -EBUSY The interface is bound to another element already.
  * @return Other negative errno from mpipe_vid_transform_client_init().
  */
 int mpipe_vid_transform_client_erpc_init(struct mpipe_vid_transform_client *vtc, uint8_t id);

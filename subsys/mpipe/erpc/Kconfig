@@ -5,16 +5,17 @@
 #
 
 config MPIPE_ERPC
-	bool "eRPC backend for the transform clients"
+	bool "eRPC backend for the client elements"
 	depends on MPIPE_RPC
 	depends on ZEPHYR_ERPC_MODULE
 	help
-	  Carry the RPC hooks of the transform clients over eRPC, with the
+	  Carry the RPC hooks of the client elements over eRPC, with the
 	  Zephyr IPC service as the transport.
 
-	  This brings up the eRPC client and reports its errors; each plugin
-	  binds its own eRPC interface to that client. The interface
-	  definitions are compiled at build time by the erpcgen host tool.
+	  This brings up the eRPC clients, one per endpoint, and reports their
+	  errors; each plugin binds each of its eRPC interfaces to a client of
+	  its own. The interface definitions are compiled at build time by the
+	  erpcgen host tool.
 
 	  The library and its transport are the module's own options, ERPC
 	  and ERPC_TRANSPORT_IPC_SERVICE: the application enables both.

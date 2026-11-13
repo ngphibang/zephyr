@@ -46,4 +46,22 @@ config MPIPE_VID_OVERLAY
 	  compositing is an aggregator-based compositor and, where the display
 	  controller has them, hardware layers.
 
+if MPIPE_ERPC
+
+config MPIPE_VID_ERPC_TRANSFORM_ENDPOINT
+	string "Endpoint of the video transform interface"
+	default "mpipe_vid_transform"
+	help
+	  Name of the IPC service endpoint the video transform client and its
+	  server meet on. Both cores must use the same name.
+
+config MPIPE_VID_ERPC_SINK_ENDPOINT
+	string "Endpoint of the video sink interface"
+	default "mpipe_vid_sink"
+	help
+	  Name of the IPC service endpoint the video sink client and its
+	  server meet on. Both cores must use the same name.
+
+endif # MPIPE_ERPC
+
 endif # MPIPE_VID

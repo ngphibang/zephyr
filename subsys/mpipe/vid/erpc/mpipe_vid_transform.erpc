@@ -5,15 +5,19 @@
  */
 
 /*
- * RPC interface between the video transform client and its server on the
+ * RPC interfaces between the video client elements and their servers on the
  * remote core. Both sides are generated from this file with erpcgen.
  *
- * The wire types are the interface's own: the client converts them from and
- * to the Zephyr video types, and the server needs no Zephyr or mpipe header.
- * The pad direction values match enum mpipe_pad_direction.
+ * The wire types are the interfaces' own: the clients convert them from and
+ * to the Zephyr video types, and a server needs no Zephyr or mpipe header.
+ * The pad direction values match enum mpipe_pad_direction and the state
+ * transition values enum mpipe_state_change.
+ *
+ * Each interface has its own client and server, so each can have its own
+ * endpoint and the calls of one never wait for those of the other.
  *
  * erpcgen derives the names of the generated functions from the interface
- * name (initMpipeVidTransform_client, create_MpipeVidTransform_service).
+ * names (initMpipeVidTransform_client, create_MpipeVidTransform_service).
  */
 
 program mpipe_vid_transform
@@ -51,4 +55,16 @@ interface MpipeVidTransform {
 	set_format_rpc(inout mpipe_rpc_video_format fmt) -> int32
 	transform_cap_rpc(in mpipe_rpc_pad_direction direction, in uint16 ind, in mpipe_rpc_video_format_cap vfc, out mpipe_rpc_video_format_cap other_vfc) -> int32
 	process_fn_rpc(in uint32 in_buf, in uint32 in_sz, in uint32 out_buf, out uint32 out_sz) -> int32
+	set_state_rpc(in uint8 transition) -> int32
+	eos_rpc() -> int32
+}
+
+/* A sink: the server consumes the buffers and returns none */
+interface MpipeVidSink {
+	sink_get_buf_caps_rpc(out uint8 min_buffers, out uint16 buf_align) -> int32
+	sink_get_format_caps_rpc(in uint8 ind, out mpipe_rpc_video_format_cap vfc) -> int32
+	sink_set_format_rpc(inout mpipe_rpc_video_format fmt) -> int32
+	sink_process_fn_rpc(in uint32 in_buf, in uint32 in_sz) -> int32
+	sink_set_state_rpc(in uint8 transition) -> int32
+	sink_eos_rpc() -> int32
 }

@@ -196,6 +196,20 @@ int32_t process_fn_rpc(uint32_t in_buf, uint32_t in_sz, uint32_t out_buf, uint32
 	return 0;
 }
 
+int32_t set_state_rpc(uint8_t transition)
+{
+	/* Nothing to prepare or to release between two runs */
+	ARG_UNUSED(transition);
+
+	return 0;
+}
+
+int32_t eos_rpc(void)
+{
+	/* Each frame is decoded on its own: nothing is held back at the end */
+	return 0;
+}
+
 int main(void)
 {
 	erpc_transport_t transport;

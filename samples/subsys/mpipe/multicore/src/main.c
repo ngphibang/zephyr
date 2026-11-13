@@ -17,7 +17,6 @@
 #include <zephyr/mpipe/base/mpipe_caps_filter.h>
 #include <zephyr/mpipe/base/mpipe_queue.h>
 #include <zephyr/mpipe/disp/mpipe_disp_sink.h>
-#include <zephyr/mpipe/erpc/mpipe_erpc.h>
 #include <zephyr/mpipe/fs/mpipe_file_src.h>
 #include <zephyr/mpipe/img/mpipe_img_jpeg_parser.h>
 #include <zephyr/mpipe/utils/mpipe_player.h>
@@ -136,11 +135,6 @@ static struct mpipe_player player;
 int main(void)
 {
 	int ret;
-
-	/* Link to the remote core first: it waits for the link a bounded time */
-	if (mpipe_erpc_client_init() == NULL) {
-		goto err;
-	}
 
 	ret = mount_sd();
 	if (ret != 0) {

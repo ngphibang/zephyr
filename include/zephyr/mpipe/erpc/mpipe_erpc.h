@@ -6,7 +6,7 @@
 
 /**
  * @file
- * @brief eRPC backend for the transform clients.
+ * @brief eRPC backend for the client elements.
  * @ingroup mpipe_erpc
  */
 
@@ -16,12 +16,13 @@
 /**
  * @defgroup mpipe_erpc eRPC backend
  * @ingroup mpipe
- * @brief eRPC transport for the transform clients.
+ * @brief eRPC transport for the client elements.
  *
- * A transform client forwards its RPC hooks to a server on another core. This
- * backend brings up one eRPC client over the Zephyr IPC service and reports
- * the errors eRPC raises. Each plugin binds its own eRPC interface to the
- * client this backend returns.
+ * A client element forwards its RPC hooks to a server on another core. This
+ * backend brings up eRPC clients over the Zephyr IPC service, one per
+ * endpoint, and reports the errors eRPC raises. Each plugin binds each of its
+ * eRPC interfaces to a client of its own, so that the calls of one element
+ * never wait for those of another.
  *
  * @{
  */
@@ -32,21 +33,26 @@
 #include "erpc_common.h"
 
 /**
- * @brief Bring up the eRPC client.
+ * @brief Bring up an eRPC client on an endpoint of its own.
  *
- * Initializes the IPC service transport, the message buffer factory and the
- * client, and installs mpipe_erpc_error_handler() on it. The client is
- * brought up once; later calls return the same one.
+ * Initializes an IPC service transport on the endpoint, a message buffer
+ * factory and a client, and installs mpipe_erpc_error_handler() on it. The
+ * call returns once the server on the other core has bound the endpoint.
+ *
+ * More than one client needs the dynamic allocation policy of eRPC
+ * (ERPC_ALLOCATION_POLICY_DYNAMIC): the static one holds a single client.
+ *
+ * @param ept_name Name of the endpoint, the one the server registers.
  *
  * @return The eRPC client, or NULL when the transport could not be
  *         initialized.
  */
-erpc_client_t mpipe_erpc_client_init(void);
+erpc_client_t mpipe_erpc_client_create(const char *ept_name);
 
 /**
  * @brief Log an eRPC error.
  *
- * Installed on the client by mpipe_erpc_client_init().
+ * Installed on the clients by mpipe_erpc_client_create().
  *
  * @param err eRPC status to report; kErpcStatus_Success logs nothing.
  * @param function_id Identifier of the RPC function the error occurred in,
