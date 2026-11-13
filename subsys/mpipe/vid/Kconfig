@@ -46,7 +46,30 @@ config MPIPE_VID_OVERLAY
 	  compositing is an aggregator-based compositor and, where the display
 	  controller has them, hardware layers.
 
-if MPIPE_ERPC
+config MPIPE_VID_PIPELINE_SERVER
+	bool "Video adapter of the pipeline server"
+	depends on MPIPE_PIPELINE_SERVER
+	help
+	  Serve a video pipeline to a video client element on another core:
+	  the functions answering the calls of the video transform and sink
+	  clients with a pipeline server, translating between the formats of
+	  the video API the clients speak and the capabilities the served
+	  pipeline negotiates with.
+
+config MPIPE_VID_PIPELINE_SERVER_ERPC
+	bool "eRPC binding of the video pipeline server"
+	depends on MPIPE_VID_PIPELINE_SERVER
+	depends on ZEPHYR_ERPC_MODULE
+	help
+	  Receive the calls of the video client elements of another core over
+	  eRPC, with the Zephyr IPC service as the transport, and answer them
+	  with a pipeline server. The server side of the interfaces the eRPC
+	  backend of the client elements (MPIPE_ERPC) speaks.
+
+	  The library and its transport are the module's own options, ERPC
+	  and ERPC_TRANSPORT_IPC_SERVICE: the application enables both.
+
+if MPIPE_ERPC || MPIPE_VID_PIPELINE_SERVER_ERPC
 
 config MPIPE_VID_ERPC_TRANSFORM_ENDPOINT
 	string "Endpoint of the video transform interface"
@@ -62,6 +85,6 @@ config MPIPE_VID_ERPC_SINK_ENDPOINT
 	  Name of the IPC service endpoint the video sink client and its
 	  server meet on. Both cores must use the same name.
 
-endif # MPIPE_ERPC
+endif # MPIPE_ERPC || MPIPE_VID_PIPELINE_SERVER_ERPC
 
 endif # MPIPE_VID

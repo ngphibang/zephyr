@@ -28,7 +28,11 @@ if(CONFIG_MPIPE_VID)
     mpipe_vid_transform_client.c
   )
 
-  if(CONFIG_MPIPE_ERPC)
+  zephyr_library_sources_ifdef(CONFIG_MPIPE_VID_PIPELINE_SERVER
+    mpipe_vid_pipeline_server.c
+  )
+
+  if(CONFIG_MPIPE_ERPC OR CONFIG_MPIPE_VID_PIPELINE_SERVER_ERPC)
     # The video interfaces, compiled by the erpcgen host tool: the client side
     # for the client elements, the server side for the pipeline server. A
     # server that is not built with this library generates its side from the
@@ -73,6 +77,10 @@ if(CONFIG_MPIPE_VID)
       mpipe_vid_sink_client_erpc.c
       mpipe_vid_transform_client_erpc.c
       ${mpipe_vid_erpc_client_sources}
+    )
+    zephyr_library_sources_ifdef(CONFIG_MPIPE_VID_PIPELINE_SERVER_ERPC
+      mpipe_vid_pipeline_server_erpc.c
+      ${mpipe_vid_erpc_server_sources}
     )
   endif()
 endif()
