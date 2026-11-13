@@ -1,0 +1,18 @@
+# Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Pipelines on two cores, remote core"
+
+config FILE_OUTPUT_PATH
+	string "Output MJPEG file path"
+	default "/SD:/rec.mjp"
+	help
+	  Absolute path of the file the stream is recorded to.
+
+config RECORD_STACK_SIZE
+	int "Stack size of the thread serving the recording pipeline"
+	default 4096
+	help
+	  The thread negotiates the recording pipeline and writes the file.
+
+source "Kconfig.zephyr"
