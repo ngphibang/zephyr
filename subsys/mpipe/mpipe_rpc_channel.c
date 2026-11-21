@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/cache.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/__assert.h>
 
@@ -28,6 +29,19 @@ int mpipe_rpc_channel_process(struct mpipe_rpc_channel *channel, uintptr_t in_bu
 			      uintptr_t out_buf, uint32_t out_cap, uint32_t *out_sz)
 {
 	int ret;
+
+	/*
+	 * The server reads the input from the memory and writes the output to
+	 * it: this core's cache must hold nothing newer than the memory of the
+	 * first, and nothing at all of the second.
+	 */
+	if (in_buf != 0U) {
+		(void)sys_cache_data_flush_range((void *)in_buf, in_sz);
+	}
+
+	if (out_buf != 0U) {
+		(void)sys_cache_data_invd_range((void *)out_buf, out_cap);
+	}
 
 	(void)k_mutex_lock(&channel->lock, K_FOREVER);
 	ret = channel->api->process(channel, in_buf, in_sz, out_buf, out_cap, out_sz);

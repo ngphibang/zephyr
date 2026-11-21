@@ -138,6 +138,11 @@ int mpipe_rpc_channel_open(struct mpipe_rpc_channel *channel);
  *
  * See @ref mpipe_rpc_channel_api.process for the parameters.
  *
+ * The server works on the memory of the buffers. Before the call, the data
+ * cache of this core is flushed over the valid bytes of the input buffer and
+ * invalidated over the output buffer, so an output buffer must start and end
+ * on a cache line of this core. The server maintains its own cache.
+ *
  * @return 0 on success, a negative errno on failure
  */
 int mpipe_rpc_channel_process(struct mpipe_rpc_channel *channel, uintptr_t in_buf, uint32_t in_sz,
