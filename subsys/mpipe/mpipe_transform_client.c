@@ -30,7 +30,6 @@ static int mpipe_transform_client_process_fn(struct mpipe_pad *pad, struct net_b
 	struct mpipe_buffer_meta *out_meta;
 	uint32_t in_used;
 	uint32_t out_used;
-
 	int ret;
 
 	if (in_buf == NULL || out_buf == NULL || transform->out_pool == NULL ||
@@ -81,8 +80,8 @@ static int mpipe_transform_client_process_fn(struct mpipe_pad *pad, struct net_b
 		mpipe_stage_stats_reset(&client_stats);
 	}
 #endif
-	if (ret != 0) {
-		LOG_ERR("Failed to process buffer via RPC");
+	if (ret != 0 || out_used > (*out_buf)->size) {
+		LOG_ERR("Failed to process buffer via RPC (%d, %u bytes out)", ret, out_used);
 		net_buf_unref(*out_buf);
 		*out_buf = NULL;
 		net_buf_unref(in_buf);
@@ -158,38 +157,30 @@ static int mpipe_transform_client_propose_buffer_pool(struct mpipe_transform *se
 	return 0;
 }
 
+/* The element keeps its own pool: only the configuration is negotiated */
 static int mpipe_transform_client_decide_buffer_pool(struct mpipe_transform *self,
 						     struct mpipe_dispatch *query)
 {
-	struct mpipe_buffer_pool *query_pool = query->pool;
-	struct mpipe_buffer_pool_config *pool_config = &self->out_pool->config;
-	struct mpipe_buffer_pool_config *qpc = NULL;
+	const struct mpipe_buffer_pool_config *asked =
+		(query->pool != NULL) ? &query->pool->config : &query->pool_cfg;
+	struct mpipe_buffer_pool_config *config = &self->out_pool->config;
+	int align;
 
-	if (query_pool == NULL) {
-		qpc = &query->pool_cfg;
-	} else {
-		qpc = &query_pool->config;
+	/* What downstream holds comes on top of what the server needs */
+	config->min_buffers = (uint8_t)MIN(
+		(uint32_t)self->out_pool->req_config.min_buffers + asked->min_buffers, UINT8_MAX);
+
+	align = sys_lcm(asked->align, config->align);
+	if (align == -1) {
+		return -EINVAL;
 	}
 
-	/* Always use its own pool, just negotiate the configs */
-	if (qpc != NULL) {
-		/* What downstream holds comes on top of what the server needs */
-		pool_config->min_buffers = (uint8_t)MIN(
-			(uint32_t)self->out_pool->req_config.min_buffers + qpc->min_buffers,
-			UINT8_MAX);
-
-		/* Decide alignment */
-		int align = sys_lcm(qpc->align, pool_config->align);
-
-		if (align == -1) {
-			return -EINVAL;
-		} else if (align == 0 && qpc->align != 0) {
-			pool_config->align = qpc->align;
-		} else if (align != 0) {
-			pool_config->align = align;
-		} else {
-			/* align == 0 && qpc->align == 0: no change needed */
-		}
+	if (align != 0) {
+		config->align = (uint16_t)align;
+	} else if (asked->align != 0U) {
+		config->align = asked->align;
+	} else {
+		/* Neither side asks for an alignment */
 	}
 
 	return 0;
