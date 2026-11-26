@@ -29,6 +29,10 @@ static int mpipe_erpc_vid_format_get_buf_caps(struct mpipe_rpc_channel *channel,
 	erpc_client_t client = mpipe_erpc_channel_lock(channel, &instance);
 	int32_t ret;
 
+	if (client == NULL) {
+		return -EIO;
+	}
+
 	ret = mpipe_erpc_vid_objects_get_buf_caps(client, instance, (uint8_t)direction, min_buffers,
 						  buf_align);
 	mpipe_erpc_channel_unlock(channel);
@@ -44,6 +48,10 @@ static int mpipe_erpc_vid_format_get_format_caps(struct mpipe_rpc_channel *chann
 	uint32_t instance;
 	erpc_client_t client = mpipe_erpc_channel_lock(channel, &instance);
 	int32_t ret;
+
+	if (client == NULL) {
+		return -EIO;
+	}
 
 	ret = mpipe_erpc_vid_objects_get_caps(client, instance, (uint8_t)direction, ind, &rpc);
 	mpipe_erpc_channel_unlock(channel);
@@ -76,6 +84,10 @@ static int mpipe_erpc_vid_format_set_format(struct mpipe_rpc_channel *channel,
 	uint32_t instance;
 	erpc_client_t client = mpipe_erpc_channel_lock(channel, &instance);
 	int32_t ret;
+
+	if (client == NULL) {
+		return -EIO;
+	}
 
 	ret = mpipe_erpc_vid_objects_set(client, instance, &rpc);
 	mpipe_erpc_channel_unlock(channel);
@@ -111,6 +123,10 @@ static int mpipe_erpc_vid_format_transform_cap(struct mpipe_rpc_channel *channel
 	uint32_t instance;
 	erpc_client_t client = mpipe_erpc_channel_lock(channel, &instance);
 	int32_t ret;
+
+	if (client == NULL) {
+		return -EIO;
+	}
 
 	ret = mpipe_erpc_vid_objects_transform_cap(client, instance, (uint8_t)direction, ind, &rpc,
 						   &other_rpc);

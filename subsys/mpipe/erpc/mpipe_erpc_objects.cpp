@@ -36,14 +36,53 @@ using namespace erpcShim;
 /* Time to wait for a transmit buffer of the IPC service */
 #define TX_BUFFER_TIMEOUT K_MSEC(10)
 
+/* Time a client waits for the answer of its server */
+#if defined(CONFIG_MPIPE_ERPC) && (CONFIG_MPIPE_ERPC_CALL_TIMEOUT_MS > 0)
+#define CALL_TIMEOUT K_MSEC(CONFIG_MPIPE_ERPC_CALL_TIMEOUT_MS)
+#else
+#define CALL_TIMEOUT K_FOREVER
+#endif
+
 namespace
 {
+
+/*
+ * The transport of a client waits for the answer of its server for a bounded
+ * time, and remembers that one did not come.
+ */
+class ipc_transport : public ZephyrIPCTransport
+{
+public:
+	explicit ipc_transport(k_timeout_t rx_timeout)
+		: ZephyrIPCTransport(), m_rx_timeout(rx_timeout), m_timed_out(false)
+	{
+	}
+
+	virtual erpc_status_t receive(MessageBuffer *message) override
+	{
+		if (k_sem_take(&m_rx_sem, m_rx_timeout) != 0) {
+			m_timed_out = true;
+			return kErpcStatus_Timeout;
+		}
+
+		/* A message is there: the transport takes it without waiting */
+		k_sem_give(&m_rx_sem);
+
+		return ZephyrIPCTransport::receive(message);
+	}
+
+	bool timedOut(void) const { return m_timed_out; }
+
+private:
+	k_timeout_t m_rx_timeout;
+	bool m_timed_out;
+};
 
 /* The messages are the buffers of the IPC service: nothing is copied */
 class ipc_message_buffer_factory : public MessageBufferFactory
 {
 public:
-	explicit ipc_message_buffer_factory(struct ipc_ept *ept) : m_ept(ept) {}
+	explicit ipc_message_buffer_factory(struct ipc_ept *ept) : m_ept(ept), m_tx(NULL) {}
 
 	virtual MessageBuffer create(void) override
 	{
@@ -51,15 +90,25 @@ public:
 		uint32_t size = 0;
 
 		(void)ipc_service_get_tx_buffer(m_ept, &buf, &size, TX_BUFFER_TIMEOUT);
+		m_tx = buf;
 
-		return MessageBuffer(reinterpret_cast<uint8_t *>(buf), static_cast<uint16_t>(size));
+		return MessageBuffer(reinterpret_cast<uint8_t *>(buf),
+				     static_cast<uint16_t>(MIN(size, (uint32_t)UINT16_MAX)));
 	}
 
 	virtual void dispose(MessageBuffer *buf) override
 	{
 		void *data = reinterpret_cast<void *>(buf->get());
 
-		if (data != NULL) {
+		if (data == NULL) {
+			return;
+		}
+
+		/* A message that was not sent is still a transmit buffer */
+		if (data == m_tx) {
+			(void)ipc_service_drop_tx_buffer(m_ept, data);
+			m_tx = NULL;
+		} else {
 			(void)ipc_service_release_rx_buffer(m_ept, data);
 		}
 	}
@@ -83,11 +132,13 @@ public:
 
 private:
 	struct ipc_ept *m_ept;
+	/* The last transmit buffer handed out, sent or not */
+	void *m_tx;
 };
 
 /* An endpoint and what eRPC needs to exchange messages on it */
 struct ipc_link {
-	ManuallyConstructed<ZephyrIPCTransport> transport;
+	ManuallyConstructed<ipc_transport> transport;
 	ManuallyConstructed<Crc16> crc16;
 	ManuallyConstructed<ipc_message_buffer_factory> factory;
 };
@@ -109,7 +160,8 @@ CodecFactory *get_codec_factory(void)
 	return codec_factory.get();
 }
 
-bool ipc_link_open(struct ipc_link *link, const char *ept_name, uint32_t init_delay_ms)
+bool ipc_link_open(struct ipc_link *link, const char *ept_name, uint32_t init_delay_ms,
+		   k_timeout_t rx_timeout)
 {
 	const struct device *ipc = DEVICE_DT_GET(DT_ALIAS(erpc_ipc));
 
@@ -130,7 +182,7 @@ bool ipc_link_open(struct ipc_link *link, const char *ept_name, uint32_t init_de
 		k_sleep(K_MSEC(init_delay_ms));
 	}
 
-	link->transport.construct();
+	link->transport.construct(rx_timeout);
 	link->crc16.construct();
 	link->transport->setCrc16(link->crc16.get());
 
@@ -217,7 +269,7 @@ erpc_client_t mpipe_erpc_objects_client_create(const char *ept_name, uint32_t in
 	}
 	(void)k_mutex_unlock(&objects_lock);
 
-	if (slot == NULL || !ipc_link_open(&slot->link, ept_name, init_delay_ms)) {
+	if (slot == NULL || !ipc_link_open(&slot->link, ept_name, init_delay_ms, CALL_TIMEOUT)) {
 		return NULL;
 	}
 
@@ -228,6 +280,13 @@ erpc_client_t mpipe_erpc_objects_client_create(const char *ept_name, uint32_t in
 	slot->manager->setErrorHandler(error_handler);
 
 	return reinterpret_cast<erpc_client_t>(slot->manager.get());
+}
+
+bool mpipe_erpc_objects_client_timed_out(erpc_client_t client)
+{
+	Transport *transport = reinterpret_cast<ClientManager *>(client)->getTransport();
+
+	return static_cast<ipc_transport *>(transport)->timedOut();
 }
 
 /*
@@ -280,7 +339,8 @@ erpc_server_t mpipe_erpc_objects_server_create(
 	}
 	(void)k_mutex_unlock(&objects_lock);
 
-	if (slot == NULL || !ipc_link_open(&slot->link, ept_name, 0U)) {
+	/* A server waits for its next call for as long as it takes */
+	if (slot == NULL || !ipc_link_open(&slot->link, ept_name, 0U, K_FOREVER)) {
 		return NULL;
 	}
 

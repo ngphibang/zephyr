@@ -79,7 +79,10 @@ struct mpipe_rpc_channel *mpipe_erpc_channel_get(const char *ept_name, uint32_t 
  * @param[out] instance Instance of the channel on the server, to pass with the
  *                      call. May be NULL.
  *
- * @return The eRPC client.
+ * @return The eRPC client, or NULL when the server did not answer an earlier
+ *         call within @kconfig{CONFIG_MPIPE_ERPC_CALL_TIMEOUT_MS}: the
+ *         endpoint is closed, the client is not taken and the caller fails
+ *         with -EIO without calling mpipe_erpc_channel_unlock().
  */
 erpc_client_t mpipe_erpc_channel_lock(struct mpipe_rpc_channel *channel, uint32_t *instance);
 

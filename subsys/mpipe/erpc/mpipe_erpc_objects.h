@@ -12,6 +12,7 @@
 #ifndef ZEPHYR_SUBSYS_MPIPE_ERPC_MPIPE_ERPC_OBJECTS_H_
 #define ZEPHYR_SUBSYS_MPIPE_ERPC_MPIPE_ERPC_OBJECTS_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "erpc_client_setup.h"
@@ -29,6 +30,13 @@ extern "C" {
  */
 erpc_client_t mpipe_erpc_objects_client_create(const char *ept_name, uint32_t init_delay_ms,
 					       client_error_handler_t error_handler);
+
+/*
+ * Whether a call of the client got no answer within
+ * CONFIG_MPIPE_ERPC_CALL_TIMEOUT_MS. The client must not be used any more: the
+ * answer, if it comes, would be taken for the answer of the next call.
+ */
+bool mpipe_erpc_objects_client_timed_out(erpc_client_t client);
 
 /* The calls of the stream interface, made through a client */
 int32_t mpipe_erpc_objects_stream_open(erpc_client_t client, uint32_t function, uint32_t *instance);

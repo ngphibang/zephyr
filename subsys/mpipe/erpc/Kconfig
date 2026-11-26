@@ -50,6 +50,22 @@ config MPIPE_ERPC_INIT_DELAY_MS
 	  Time a channel waits before it talks to the remote core,
 	  which may still be booting when the pipeline is built.
 
+config MPIPE_ERPC_CALL_TIMEOUT_MS
+	int "Time a client element waits for its server (in milliseconds)"
+	default 5000
+	range 0 600000
+	help
+	  How long a call of a client element waits for the answer of the
+	  server on the other core. When the answer does not come, the call
+	  fails and the endpoint is closed: every later call on it fails at
+	  once, so a server that hangs fails the stream and does not hold a
+	  stop. Take a value well above the longest call, a state change of
+	  the served pipeline included: a server that answers late may still
+	  write to the buffers of a call that was given up. 0 waits forever.
+
+	  The first connection to the server is not bounded: the channel
+	  waits for the other core to bind the endpoint.
+
 endif # MPIPE_ERPC
 
 config MPIPE_ERPC_SERVER

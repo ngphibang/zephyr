@@ -75,6 +75,8 @@ struct mpipe_erpc_endpoint {
 	erpc_client_t client;
 	/* The client makes one call at a time */
 	struct k_mutex lock;
+	/* The server did not answer a call: no further call is made */
+	bool closed;
 };
 
 struct mpipe_erpc_channel {
@@ -96,19 +98,34 @@ static inline struct mpipe_erpc_channel *mpipe_erpc_channel_of(struct mpipe_rpc_
 erpc_client_t mpipe_erpc_channel_lock(struct mpipe_rpc_channel *channel, uint32_t *instance)
 {
 	struct mpipe_erpc_channel *erpc_channel = mpipe_erpc_channel_of(channel);
+	struct mpipe_erpc_endpoint *endpoint = erpc_channel->endpoint;
 
-	(void)k_mutex_lock(&erpc_channel->endpoint->lock, K_FOREVER);
+	(void)k_mutex_lock(&endpoint->lock, K_FOREVER);
+
+	if (endpoint->closed) {
+		(void)k_mutex_unlock(&endpoint->lock);
+		return NULL;
+	}
 
 	if (instance != NULL) {
 		*instance = erpc_channel->instance;
 	}
 
-	return erpc_channel->endpoint->client;
+	return endpoint->client;
 }
 
 void mpipe_erpc_channel_unlock(struct mpipe_rpc_channel *channel)
 {
-	(void)k_mutex_unlock(&mpipe_erpc_channel_of(channel)->endpoint->lock);
+	struct mpipe_erpc_endpoint *endpoint = mpipe_erpc_channel_of(channel)->endpoint;
+
+	/* A late answer would be taken for the answer of the next call */
+	if (mpipe_erpc_objects_client_timed_out(endpoint->client)) {
+		LOG_ERR("The server on %s did not answer within %d ms: endpoint closed",
+			endpoint->name, CONFIG_MPIPE_ERPC_CALL_TIMEOUT_MS);
+		endpoint->closed = true;
+	}
+
+	(void)k_mutex_unlock(&endpoint->lock);
 }
 
 static int mpipe_erpc_channel_open(struct mpipe_rpc_channel *channel)
@@ -127,17 +144,23 @@ static int mpipe_erpc_channel_open(struct mpipe_rpc_channel *channel)
 
 	if (endpoint->client == NULL) {
 		LOG_ERR("Failed to bring up the eRPC client on %s", endpoint->name);
-		ret = -EIO;
-	} else {
-		ret = mpipe_erpc_objects_stream_open(endpoint->client, erpc_channel->function,
-						     &erpc_channel->instance);
-		if (ret != 0) {
-			LOG_ERR("The server on %s refused function %u (%d)", endpoint->name,
-				(unsigned int)erpc_channel->function, ret);
-		}
+		(void)k_mutex_unlock(&endpoint->lock);
+		return -EIO;
 	}
 
-	(void)k_mutex_unlock(&endpoint->lock);
+	if (endpoint->closed) {
+		(void)k_mutex_unlock(&endpoint->lock);
+		return -EIO;
+	}
+
+	ret = mpipe_erpc_objects_stream_open(endpoint->client, erpc_channel->function,
+					     &erpc_channel->instance);
+	if (ret != 0) {
+		LOG_ERR("The server on %s refused function %u (%d)", endpoint->name,
+			(unsigned int)erpc_channel->function, ret);
+	}
+
+	mpipe_erpc_channel_unlock(channel);
 
 	return ret;
 }
@@ -158,6 +181,10 @@ static int mpipe_erpc_channel_process(struct mpipe_rpc_channel *channel, uintptr
 	}
 
 	client = mpipe_erpc_channel_lock(channel, &instance);
+	if (client == NULL) {
+		return -EIO;
+	}
+
 	ret = mpipe_erpc_objects_stream_process(client, instance, (uint32_t)in_buf, in_sz,
 						(uint32_t)out_buf, out_cap,
 						(out_sz != NULL) ? out_sz : &unused);
@@ -174,6 +201,10 @@ static int mpipe_erpc_channel_set_state(struct mpipe_rpc_channel *channel,
 	int ret;
 
 	client = mpipe_erpc_channel_lock(channel, &instance);
+	if (client == NULL) {
+		return -EIO;
+	}
+
 	ret = mpipe_erpc_objects_stream_set_state(client, instance, (uint8_t)transition);
 	mpipe_erpc_channel_unlock(channel);
 
@@ -187,6 +218,10 @@ static int mpipe_erpc_channel_eos(struct mpipe_rpc_channel *channel)
 	int ret;
 
 	client = mpipe_erpc_channel_lock(channel, &instance);
+	if (client == NULL) {
+		return -EIO;
+	}
+
 	ret = mpipe_erpc_objects_stream_eos(client, instance);
 	mpipe_erpc_channel_unlock(channel);
 
