@@ -151,11 +151,14 @@ int mpipe_rpc_channel_process(struct mpipe_rpc_channel *channel, uintptr_t in_bu
 /**
  * @brief Take the server through a state transition
  *
+ * A failure of the server on a transition towards READY is logged and not
+ * returned: the client element stops whatever its server does.
+ *
  * @param channel The channel
  * @param transition The transition the client element goes through
  *
  * @return 0 on success or when the channel has no such function, a negative
- *         errno on failure
+ *         errno when the server fails a transition towards PLAYING
  */
 int mpipe_rpc_channel_set_state(struct mpipe_rpc_channel *channel,
 				enum mpipe_state_change transition);

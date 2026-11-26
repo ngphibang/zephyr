@@ -6,9 +6,12 @@
 
 #include <zephyr/cache.h>
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 
 #include <zephyr/mpipe/mpipe_rpc_channel.h>
+
+LOG_MODULE_REGISTER(mpipe_rpc_channel, CONFIG_MPIPE_LOG_LEVEL);
 
 void mpipe_rpc_channel_init(struct mpipe_rpc_channel *channel,
 			    const struct mpipe_rpc_channel_api *api)
@@ -62,6 +65,13 @@ int mpipe_rpc_channel_set_state(struct mpipe_rpc_channel *channel,
 	(void)k_mutex_lock(&channel->lock, K_FOREVER);
 	ret = channel->api->set_state(channel, transition);
 	(void)k_mutex_unlock(&channel->lock);
+
+	/* A server that fails, or no longer answers, does not hold a stop */
+	if (ret != 0 && (transition == MPIPE_STATE_CHANGE_PLAYING_TO_PAUSED ||
+			 transition == MPIPE_STATE_CHANGE_PAUSED_TO_READY)) {
+		LOG_WRN("The server failed a transition towards READY (%d)", ret);
+		ret = 0;
+	}
 
 	return ret;
 }

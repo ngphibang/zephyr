@@ -187,6 +187,8 @@ static void served_sink_cb(const struct net_buf *buf, void *user_data)
 struct test_channel {
 	struct mpipe_rpc_channel channel;
 	struct mpipe_pipeline_server *server;
+	/* The server no longer answers the state changes */
+	bool state_fails;
 };
 
 static struct {
@@ -281,6 +283,10 @@ static int test_channel_process(struct mpipe_rpc_channel *channel, uintptr_t in_
 static int test_channel_set_state(struct mpipe_rpc_channel *channel,
 				  enum mpipe_state_change transition)
 {
+	if (CONTAINER_OF(channel, struct test_channel, channel)->state_fails) {
+		return -EIO;
+	}
+
 	return mpipe_pipeline_server_set_state(channel_server(channel),
 					       MPIPE_STATE_TRANSITION_NEXT(transition));
 }
@@ -534,6 +540,7 @@ static void remote_after(void *f)
 	ARG_UNUSED(f);
 
 	/* Also runs when the test failed before tearing its pipelines down */
+	xf.channel.state_fails = false;
 	(void)mpipe_element_set_state((struct mpipe_element *)&xf.pipeline, MPIPE_STATE_READY);
 	(void)mpipe_element_set_state((struct mpipe_element *)&sk.pipeline, MPIPE_STATE_READY);
 	(void)mpipe_element_set_state((struct mpipe_element *)&xf.served, MPIPE_STATE_READY);
@@ -659,6 +666,30 @@ ZTEST(test_remote, test_transform_eos)
 
 	zassert_ok(
 		mpipe_element_set_state((struct mpipe_element *)&xf.pipeline, MPIPE_STATE_READY));
+}
+
+ZTEST(test_remote, test_transform_stop_without_server)
+{
+	struct mpipe_element *pipeline = (struct mpipe_element *)&xf.pipeline;
+
+	zassert_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_PLAYING));
+	transform_one(1);
+
+	/* A server that fails the state changes does not hold the stop of the client */
+	xf.channel.state_fails = true;
+	zassert_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_READY));
+	zassert_equal(state_of(&xf.served), MPIPE_STATE_PLAYING);
+
+	/* It still refuses a start */
+	zassert_not_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_PLAYING));
+	zassert_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_READY));
+
+	/* Once it answers again, the next run renegotiates it from READY */
+	xf.channel.state_fails = false;
+	zassert_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_PLAYING));
+	transform_one(2);
+	zassert_ok(mpipe_element_set_state(pipeline, MPIPE_STATE_READY));
+	zassert_equal(state_of(&xf.served), MPIPE_STATE_READY);
 }
 
 ZTEST(test_remote, test_transform_refused_format)
